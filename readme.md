@@ -19,6 +19,16 @@ Used as a proxy between the Bryte stack and TGN stack. Writte in async rust.
 | AMS_KW (**WIP**)                  | 40100   | 4      | uint64 |
 | CMD_REQ_SETPOINT                  | 40200   | 4      | int64  |
 
-## Running the TCP server
+## Compile production binary
+`cargo build --release`
+
+## Running the compiled binary
+To view help, run `rust_modbus -help`
+
+Regular running is done with `rust_modbus <PORT>`
+
+## Running as dev
+This is done with `cargo run`
 
 ## Running tests
+Easily done with `cargo run test`
