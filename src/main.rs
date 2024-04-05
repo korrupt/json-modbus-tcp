@@ -1,17 +1,10 @@
-use std::{
-    collections::HashMap,
-    future,
-    net::{Ipv4Addr, SocketAddr},
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use clap::Parser;
-use tokio::net::TcpListener;
 
 mod service;
 mod server;
-
+mod util;
 
 
 // fn transform_coil_vector(coils: &Vec<u16>) -> Vec<u16> {
