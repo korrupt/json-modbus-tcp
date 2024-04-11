@@ -5,6 +5,7 @@ use clap::Parser;
 mod service;
 mod server;
 mod util;
+mod json;
 
 
 // fn transform_coil_vector(coils: &Vec<u16>) -> Vec<u16> {

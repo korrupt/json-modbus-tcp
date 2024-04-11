@@ -4,7 +4,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use serde_json::Value;
 use tokio_modbus::prelude::*;
+
+use crate::json::{self, JsonError, JsonResult};
 
 
 pub struct BatteryService {
@@ -18,6 +21,16 @@ pub struct BatteryService {
 
 
 impl BatteryService {
+    pub fn try_from_json(data: Value) -> Result<BatteryService, JsonError> {
+        let JsonResult { holding_registers, coils } = json::parse_data(data)?;
+
+        Ok(BatteryService {
+            holding_registers: Arc::new(Mutex::new(holding_registers)),
+            coils: Arc::new(Mutex::new(coils)),
+            ..BatteryService::new()
+        })
+    }
+
     pub fn new() -> Self {
         // Insert some test data as register values.
         let inputs = HashMap::new();
@@ -135,6 +148,7 @@ fn register_write(
 
 #[cfg(test)]
 mod async_tests {
+    use serde_json::json;
     use tokio_modbus::server::Service;
 
     use crate::util::AsWords;
@@ -142,6 +156,39 @@ mod async_tests {
     use super::*;
 
     type Error = Box<dyn std::error::Error>;
+
+    #[tokio::test]
+    pub async fn load_from_json() -> Result<(), Error> {
+        let data = json!({
+            "00001": false,
+            "00100": false,
+            "40001": 1,
+            "40002": 1,
+            "40003": 20000,
+            "40007": 69696969,
+            "40011": 69696969,
+            "40015": 69696969,
+            "40019": 69696969,
+            "40023": 69696969,
+            "40100": 69696969,
+            "40200": -69696969,
+        });
+
+        let service = BatteryService::try_from_json(data).expect("Error loading json");
+
+        let coil = service.call(Request::ReadCoils(1, 1)).await?;
+
+        assert_eq!(coil, Response::ReadCoils(vec![false]));
+
+        let holding_register = service.call(Request::ReadHoldingRegisters(40007, 8)).await?;
+
+        assert_eq!(holding_register, Response::ReadHoldingRegisters([
+            69696969u64.as_words(),
+            69696969u64.as_words(),
+        ].concat()));
+
+        Ok(())
+    }
     
     #[tokio::test]
     pub async fn test_coil() -> Result<(), Error> {

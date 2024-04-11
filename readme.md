@@ -15,7 +15,7 @@ Used as a proxy between the Bryte stack and TGN stack. Writte in async rust.
 | SYS_TOT_CAPASITY                  | 40011   | 4      | uint64 |
 | SYS_TOT_SOC                       | 40015   | 4      | uint64 |
 | SYS_REQ_SETPOINT                  | 40019   | 4      | uint64 |
-| SYS_AVAILABLE_POWER               | 40022   | 4      | uint64 |
+| SYS_AVAILABLE_POWER               | 40023   | 4      | uint64 |
 | AMS_KW (**WIP**)                  | 40100   | 4      | uint64 |
 | CMD_REQ_SETPOINT                  | 40200   | 4      | int64  |
 
