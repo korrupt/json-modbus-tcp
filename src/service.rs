@@ -66,7 +66,7 @@ impl BatteryService {
 impl tokio_modbus::server::Service for BatteryService {
     type Request = Request<'static>;
     type Future = future::Ready<Result<Response, Exception>>;
-
+    
     fn call(&self, req: Self::Request) -> Self::Future {
         match req {
             Request::ReadCoils(addr, cnt) => future::ready(

@@ -25,7 +25,7 @@ Used as a proxy between the Bryte stack and TGN stack. Writte in async rust.
 ## Running the compiled binary
 To view help, run `rust_modbus -help`
 
-Regular running is done with `rust_modbus <PORT>`
+Regular running is done with `rust_modbus <TARGET> [-p <PORT>]`
 
 ## Running as dev
 This is done with `cargo run`

@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{net::{Ipv4Addr, SocketAddr}, str::FromStr};
 
 use clap::Parser;
 
@@ -28,7 +28,12 @@ mod json;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    
+    /// target IP address
+    target: String,
+
     /// Which port to run on
+    #[clap(short, default_value = "503")]
     port: u16,
 }
 
@@ -38,7 +43,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let socket_addr: SocketAddr = (Ipv4Addr::UNSPECIFIED, args.port).into();
+    let ip_address = Ipv4Addr::from_str(&args.target).expect("Invalid IP address:");
+
+    let socket_addr: SocketAddr = (ip_address, args.port).into();
 
     server::server_context(socket_addr).await?;
 
