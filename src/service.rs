@@ -1,13 +1,12 @@
 use std::{
-    collections::HashMap,
-    future,
-    sync::{Arc, Mutex},
+    collections::HashMap, fs::File, future, io::{BufWriter, Seek, Write}, str::FromStr, sync::{Arc, Mutex}
 };
 
-use serde_json::Value;
+use serde_json::{Number, Value};
 use tokio_modbus::prelude::*;
 
 use crate::json::{self, JsonError, JsonResult};
+use crate::util::FromVec;
 
 
 pub struct BatteryService {
@@ -21,13 +20,90 @@ pub struct BatteryService {
 
 
 impl BatteryService {
+
+    pub fn write_json(&self) -> Result<(), JsonError> {
+        let mut json = json::load_json("data.json").unwrap();
+
+        match &mut json {
+            Value::Object(m) => {
+                let holding_registers_copy = self.holding_registers.lock().unwrap().clone();
+
+                let h_u16 = [
+                    40001u16,
+                    40002
+                ];
+
+                for k in h_u16 {
+                    let val = holding_registers_copy.get(&k).unwrap();
+                    let number = Number::from_str(val.to_string().as_str()).unwrap();
+                    m.insert(k.to_string(), Value::Number(number));
+                }
+
+
+
+                let h_u64 = [
+                    40003u16,
+                    40007,
+                    40011,
+                    40015,
+                    40019,
+                    40023,
+                    40100,
+                ];
+
+                for k in h_u64 {
+                    let val = register_read(&holding_registers_copy, k, 4).unwrap();
+                    let transformed: u64 = val.from_vec();
+                    
+                    let number = Number::from_str(transformed.to_string().as_str()).unwrap();
+                    // println!("Val: {} transformed {} Number {}", k.to_string(), transformed.to_string(), number);
+
+                    m.insert(k.to_string(), Value::Number(number));
+                }
+
+                let h_i64 = [
+                    40200u16
+                ];
+
+
+                for k in h_i64 {
+                    // let val = holding_registers_copy.get(k)
+                    let val = register_read(&holding_registers_copy, k, 4).unwrap();
+                    let transformed: i64 = val.from_vec();
+                
+                    let number = Number::from_str(transformed.to_string().as_str()).unwrap();
+
+                    m.insert(k.to_string(), Value::Number(number));
+                }
+
+            },
+            _ => panic!("WRONG FILE")
+        };
+
+        
+        let mut file = File::options()
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open("data.json")
+            .unwrap();
+
+        
+        let output = serde_json::to_string_pretty(&json).unwrap();
+        file.write_all(output.as_bytes()).unwrap();
+
+
+        Ok(())
+    }
+
     pub fn try_from_json(data: Value) -> Result<BatteryService, JsonError> {
         let JsonResult { holding_registers, coils } = json::parse_data(data)?;
 
         Ok(BatteryService {
             holding_registers: Arc::new(Mutex::new(holding_registers)),
             coils: Arc::new(Mutex::new(coils)),
-            ..BatteryService::new()
+            input_registers: Arc::new(Mutex::new(HashMap::new())),
+            inputs: Arc::new(Mutex::new(HashMap::new()))
         })
     }
 
@@ -68,7 +144,8 @@ impl tokio_modbus::server::Service for BatteryService {
     type Future = future::Ready<Result<Response, Exception>>;
     
     fn call(&self, req: Self::Request) -> Self::Future {
-        match req {
+
+        let op = match req {
             Request::ReadCoils(addr, cnt) => future::ready(
                 register_read(&self.coils.lock().unwrap(), addr, cnt)
                     .map(|reg| Response::ReadCoils(reg.iter().map(|v| *v == 1).collect::<Vec<bool>>()))
@@ -101,8 +178,13 @@ impl tokio_modbus::server::Service for BatteryService {
                 println!("SERVER: Exception::IllegalFunction - Unimplemented function code in request: {req:?}");
                 future::ready(Err(Exception::IllegalFunction))
             }
-        }
+        };
+        
+        self.write_json().unwrap();
+
+        return op
     }
+
 }
 
 fn register_read(
@@ -112,6 +194,7 @@ fn register_read(
 ) -> Result<Vec<u16>, Exception>
 {
     let mut response_values: Vec<u16> = vec![0; cnt.into()];
+    
     for i in 0..cnt {
         let reg_addr = addr + i;
         if let Some(r) = registers.get(&reg_addr) {
@@ -121,6 +204,7 @@ fn register_read(
             return Err(Exception::IllegalDataAddress);
         }
     }
+
 
     Ok(response_values)
 }
