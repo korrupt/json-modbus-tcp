@@ -1,28 +1,14 @@
-use std::{net::{Ipv4Addr, SocketAddr}, str::FromStr};
+use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, str::FromStr, time::Duration};
 
 use clap::Parser;
+use json::JsonResult;
 
 mod service;
 mod server;
 mod util;
 mod json;
+mod register_manager;
 
-
-// fn transform_coil_vector(coils: &Vec<u16>) -> Vec<u16> {
-//     let num_bytes = (coils.len() + 15) / 16;
-//     let mut packed_coils = vec![0u16; num_bytes];
-
-//     for (index, &status) in coils.iter( ).enumerate() {
-//         let u16_idx = index / 16;
-//         let bit_position = index & 16;
-
-//         if status != 0 {
-//             packed_coils[u16_idx] |= 1 << bit_position;
-//         }
-//     }
-
-//     packed_coils
-// }
 
 
 #[derive(Parser, Debug)]
@@ -35,6 +21,28 @@ struct Args {
     /// Which port to run on
     #[clap(short, default_value = "503")]
     port: u16,
+
+    /// How often to update persistence
+    #[clap(short('f'), default_value = "1s", value_parser = validate_time)]
+    update_frequency: Duration,
+}
+
+fn validate_time(val: &str) -> Result<Duration, String> {
+    if let Some(suffix) = val.strip_suffix("ms") {
+        if let Ok(num) = suffix.parse::<u64>() {
+            return Ok(Duration::from_millis(num));
+        }
+    } else if let Some(suffix) = val.strip_suffix("us") {
+        if let Ok(num) = suffix.parse::<u64>() {
+            return Ok(Duration::from_micros(num));
+        }
+    } else if let Some(suffix) = val.strip_suffix("s") {
+        if let Ok(num) = suffix.parse::<u64>() {
+            return Ok(Duration::from_secs(num));
+        }
+    }
+    
+    Err(String::from("The time must be a whole number suffixed by 's', 'ms', or 'us'"))
 }
 
 
@@ -47,49 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let socket_addr: SocketAddr = (ip_address, args.port).into();
 
-    server::server_context(socket_addr).await?;
-
+    server::server_context(socket_addr, args.update_frequency).await?;
+    
     Ok(())
 }
-
-// async fn client_context(socket_addr: SocketAddr) {
-//     tokio::join!(
-//         async {
-//             // Give the server some time for starting up
-//             tokio::time::sleep(Duration::from_secs(1)).await;
-
-//             println!("CLIENT: Connecting client...");
-//             let mut ctx = tcp::connect(socket_addr).await.unwrap();
-
-//             println!("CLIENT: Reading 2 input registers...");
-//             let response = ctx.read_input_registers(0x00, 2).await.unwrap();
-//             println!("CLIENT: The result is '{response:?}'");
-//             assert_eq!(response, vec![1234, 5678]);
-
-//             println!("CLIENT: Writing 2 holding registers...");
-//             ctx.write_multiple_registers(0x01, &[7777, 8888])
-//                 .await
-//                 .unwrap();
-//                 // .unwrap();
-
-//             // Read back a block including the two registers we wrote.
-//             println!("CLIENT: Reading 4 holding registers...");
-//             let response = ctx.read_holding_registers(0x00, 4).await.unwrap();
-//             println!("CLIENT: The result is '{response:?}'");
-//             assert_eq!(response, vec![10, 7777, 8888, 40]);
-
-//             // Now we try to read with an invalid register address.
-//             // This should return a Modbus exception response with the code
-//             // IllegalDataAddress.
-//             // println!("CLIENT: Reading nonexistent holding register address... (should return IllegalDataAddress)");
-//             // let response = ctx.read_holding_registers(0x100, 1).await;
-//             // println!("CLIENT: The result is '{response:?}'");
-//             // assert!(matches!(response, Err(Exception::IllegalDataAddress)));
-
-//             println!("CLIENT: Done.")
-//         },
-//         tokio::time::sleep(Duration::from_secs(5))
-//     );
-
-//     let a = 1;
-// }
