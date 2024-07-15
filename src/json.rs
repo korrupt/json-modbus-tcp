@@ -111,7 +111,7 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
 }
 
 pub fn write(registers: &JsonResult, path: &str) -> Result<(), JsonError> {
-    let JsonResult { coils, inputs, input_registers, holding_registers } = registers;
+    let JsonResult { coils, holding_registers, .. } = registers;
     let mut json: Map<String, Value> = Map::new();
 
     let b_u16 = [1u16, 100];

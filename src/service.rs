@@ -1,6 +1,6 @@
-use std::{collections::HashMap, future, ops::Deref, sync::Arc};
+use std::{future, sync::Arc};
 use tokio_modbus::{Exception, Request, Response};
-use crate::{json::{self, JsonResult}, register_manager::{RegisterError, RegisterManager, RegisterType}};
+use crate::register_manager::{RegisterError, RegisterManager, RegisterType};
 
 pub struct ModbusService {
     manager: Arc<RegisterManager>
@@ -69,27 +69,27 @@ impl tokio_modbus::server::Service for ModbusService {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
-    use crate::register_manager::create_empty_register;
-
+    use std::sync::Arc;
+    use tokio::test;
+    use tokio_modbus::{server::Service, Request};
+    use crate::{register_manager::{RegisterManager, RegisterType}, util::AsWords};
+    use super::ModbusService;
 
     #[test]
-    pub fn read_register_test() -> Result<(), anyhow::Error> {
+    pub async fn read_register_test() -> Result<(), anyhow::Error> {
 
-        let register = create_empty_register([1..2, 100..104]);
+        let register_manager = Arc::new(RegisterManager::new());
+        let service = ModbusService::new(register_manager.clone());
 
+        let value: u64 = 42;
+        let value_arr = value.as_words();
+        
+        service.call(Request::WriteMultipleRegisters(40007, value_arr.clone().into())).await.unwrap();
 
-        // assert_eq!(
-        //     read_register(&register, 1, 1)?,
-        //     vec![0u16]
-        // );
+        let received = service.manager.read_register(RegisterType::HoldingRegisters, 40007, 4).unwrap();
 
-        // assert_eq!(
-        //     read_register(&register, 100, 4)?,
-        //     vec![0u16, 0u16, 0u16, 0u16]
-        // );
-
+        assert_eq!(value_arr, received);
 
         Ok(())
     }

@@ -1,7 +1,6 @@
-use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, str::FromStr, time::Duration};
+use std::{net::{Ipv4Addr, SocketAddr}, str::FromStr, time::Duration};
 
 use clap::Parser;
-use json::JsonResult;
 
 mod service;
 mod server;

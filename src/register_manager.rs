@@ -24,7 +24,7 @@ impl Default for RegisterManager {
     fn default() -> Self {
         let inputs  = create_empty_register([[0]]);
         let coils   = create_empty_register([[1, 100]]);
-        let holding_registers = create_empty_register([40001..40027, 40100..40101, 40200..40201]);
+        let holding_registers = create_empty_register([40001..40027, 40100..40104, 40200..40204]);
         let input_registers = create_empty_register([0..0]); 
 
         RegisterManager {
@@ -43,6 +43,7 @@ pub struct RegisterManager {
     input_registers: Arc<RwLock<Register>>,
 }
 
+#[allow(dead_code)]
 pub enum RegisterType {
     Inputs,
     Coils,
@@ -56,7 +57,7 @@ impl RegisterManager {
     }
 
     pub fn from_json(json: Value) -> Result<Self, JsonError> {
-        let JsonResult { coils, inputs, input_registers, holding_registers } = json::parse(json)?;
+        let JsonResult { coils, holding_registers, .. } = json::parse(json)?;
 
         Ok(RegisterManager {
             coils: Arc::new(RwLock::new(coils)),
@@ -149,7 +150,7 @@ impl RegisterManager {
 mod register_tests {
     use serde_json::json;
 
-    use crate::{json, register_manager::RegisterManager};
+    use crate::register_manager::RegisterManager;
 
 
     #[test]
