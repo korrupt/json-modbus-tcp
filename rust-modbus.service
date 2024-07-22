@@ -1,0 +1,15 @@
+[Unit]
+Description=Rust Modbus Server
+After=Network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/usr/share/rust-modbus
+ExecStart=/usr/share/rust-modbus/rust-modbus 127.0.0.1 -p 503 -f 5s
+Restart=on-failure
+StandardOutput=file:/var/log/rust-modbus.log
+StandardError=file:/var/log/rust-modbus.log
+
+[Install]
+WantedBy=network.target
