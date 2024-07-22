@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs::{File, OpenOptions}, io::{ErrorKind, Read, W
 
 use serde_json::{Map, Number, Value};
 
-use crate::{register_manager::Register, util::{AsWords, FromVec}};
+use crate::register_manager::Register;
 
 #[derive(Debug)]
 pub enum JsonError {
@@ -71,12 +71,12 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
         40001u16,
         40002,
         40003,
+        40004,
+        40005,
+        40006,
         40007,
-        40011,
-        40015,
-        40019,
-        40023,
-        40100,
+        40008,
+        40100
     ];
     let mut holding_registers: Register = HashMap::with_capacity(h_u64.len());
 
@@ -84,11 +84,9 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
         let entry = data.get(&addr.to_string())
             .ok_or(JsonError::Incomplete(format!("Missing address {}", addr)))?;
         let value = entry.as_u64()
-            .ok_or(JsonError::Invalid(format!("Address {} should be u64", addr)))?;
+            .and_then(|v| u16::try_from(v).ok()).ok_or(JsonError::Invalid(format!("Address {addr} must be u16")))?;
 
-        for (i, slice) in value.as_words().into_iter().enumerate() {
-            holding_registers.insert(addr + (i as u16), slice);
-        }
+        holding_registers.insert(addr, value);
     }
 
     let h_i64 = [40200u16];
@@ -97,11 +95,9 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
         let entry = data.get(&addr.to_string())
             .ok_or(JsonError::Incomplete(format!("Missing address {}", addr)))?;
         let value = entry.as_i64()
-            .ok_or(JsonError::Invalid(format!("Address {} should be i64", addr)))?;
+            .and_then(|v| i16::try_from(v).ok()).ok_or(JsonError::Invalid(format!("Address {addr} must be i16")))?;
 
-        for (i, slice) in value.as_words().into_iter().enumerate() {
-            holding_registers.insert(addr + (i as u16), slice);
-        }
+        holding_registers.insert(addr, value as u16);
     }
 
     let inputs: HashMap<u16, u16> = HashMap::new();
@@ -125,7 +121,17 @@ pub fn write(registers: &JsonResult, path: &str) -> Result<(), JsonError> {
 
 
     
-    let r_u16 = [40001, 40002];
+    let r_u16 = [
+        40001, 
+        40002,
+        40003,
+        40004,
+        40005,
+        40006,
+        40007,
+        40008,
+        40100
+    ];
     for addr in r_u16 {
         let entry = holding_registers.get(&addr)
             .ok_or(JsonError::Incomplete(format!("Missing address {}", addr)))?;
@@ -134,34 +140,11 @@ pub fn write(registers: &JsonResult, path: &str) -> Result<(), JsonError> {
         json.insert(addr.to_string(), value);
     }
 
-    let r_u64 = [
-        40003,
-        40007,
-        40011,
-        40015,
-        40019,
-        40023,
-        40100,
-    ];
-
-    for addr in r_u64 {
-        let entry = [addr + 0, addr + 1, addr + 2, addr + 3]
-            .into_iter().map(|a| holding_registers.get(&a).cloned().ok_or(JsonError::Incomplete(format!("Missing address {}", addr))))
-            .collect::<Result<Vec<u16>, JsonError>>()?;
-        let value: u64 = entry.from_vec();
-        let value = Value::Number(Number::from(value));
-
-        json.insert(addr.to_string(), value);
-    }
-
-    let h_i64 = [40200u16];
+    let h_i16 = [40200u16];
     
-    for addr in h_i64 {
-        let entry = [addr + 0, addr + 1, addr + 2, addr + 3]
-            .into_iter().map(|a| holding_registers.get(&a).cloned().ok_or(JsonError::Incomplete(format!("Missing address {}", addr))))
-            .collect::<Result<Vec<u16>, JsonError>>()?;
-        let value: i64 = entry.from_vec();
-        let value = Value::Number(Number::from(value));
+    for addr in h_i16 {
+        let entry = holding_registers.get(&addr).ok_or(JsonError::Incomplete(format!("Missing address {addr}")))?;
+        let value = Value::Number(Number::from(*entry as i16));
 
         json.insert(addr.to_string(), value);
     }
@@ -200,22 +183,42 @@ mod tests {
         let data = json!({
             "1": false,
             "100": false,
-            "40001": 1,
-            "40002": 1,
-            "40003": 20000,
-            "40007": 69696969,
-            "40011": 69696969,
-            "40015": 69696969,
-            "40019": 69696969,
-            "40023": 69696969,
-            "40100": 69696969,
-            "40200": -69696969,
+            "40001": 0,
+            "40002": 0,
+            "40003": 0,
+            "40004": 0,
+            "40005": 0,
+            "40006": 0,
+            "40007": 0,
+            "40008": 0,
+            "40100": 0,
+            "40200": 0,
+            "40100": -10,
+            "40200": 0,
         });
 
-        let data = parse(data).map_err(|e| e.to_string())?;
+        let result = parse(data).map_err(|e| e.to_string());
+        assert!(result.is_ok());
 
-        println!("Data: {:?}", data);
+        let data = json!({
+            "1": false,
+            "100": false,
+            "40001": 0,
+            "40002": 0,
+            "40003": 0,
+            "40004": 0,
+            "40005": 4000,
+            "40006": 0,
+            "40007": 0,
+            "40008": 0,
+            "40100": 0,
+            "40200": 0,
+            "40100": 0,
+            "40200": 32768,
+        });
 
+        let result = parse(data).map_err(|e| e.to_string());
+        assert!(result.is_err());
 
         Ok(())
     }

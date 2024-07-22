@@ -24,7 +24,7 @@ impl Default for RegisterManager {
     fn default() -> Self {
         let inputs  = create_empty_register([[0]]);
         let coils   = create_empty_register([[1, 100]]);
-        let holding_registers = create_empty_register([40001..40027, 40100..40104, 40200..40204]);
+        let holding_registers = create_empty_register([40001..=40008, 40100..=40100, 40200..=40200]);
         let input_registers = create_empty_register([0..0]); 
 
         RegisterManager {
@@ -80,7 +80,9 @@ impl RegisterManager {
 
         let result = self.to_json();
 
-        json::write(&result, "data.json").unwrap();
+        if let Err(e) = json::write(&result, "data.json") {
+            eprintln!("Error updating persistence: {:?}", e);
+        }
 
         Ok(())
     }
@@ -102,15 +104,17 @@ impl RegisterManager {
     ) -> Result<Vec<u16>, RegisterError> {
         let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
-        let registers = self.register_select(registers_type)
-            .read()
-            .unwrap();
-
-        for i in 0..cnt {
-            if let Some(value) = registers.get(&(addr + i)) {
-                response.push(*value);
-            } else {
-                return Err(RegisterError::OutOfBounds);
+        {
+            let registers = self.register_select(registers_type)
+                .read()
+                .unwrap();
+        
+            for i in 0..cnt {
+                if let Some(value) = registers.get(&(addr + i)) {
+                    response.push(*value);
+                } else {
+                    return Err(RegisterError::OutOfBounds);
+                }
             }
         }
     
@@ -123,17 +127,19 @@ impl RegisterManager {
         addr: u16,
         values: &[u16],
     ) -> Result<(), RegisterError> {
-        let mut registers = self.register_select(registers_type)
-            .write()
-            .unwrap();
+        {
+            let mut registers = self.register_select(registers_type)
+                .write()
+                .unwrap();
 
-        for (i, value) in values.iter().enumerate() {
-            let reg_addr = addr + i as u16;
-    
-            if let Some(val) = registers.get_mut(&reg_addr) {
-                *val = *value;
-            } else {
-                return Err(RegisterError::OutOfBounds);
+            for (i, value) in values.iter().enumerate() {
+                let reg_addr = addr + i as u16;
+        
+                if let Some(val) = registers.get_mut(&reg_addr) {
+                    *val = *value;
+                } else {
+                    return Err(RegisterError::OutOfBounds);
+                }
             }
         }
     
