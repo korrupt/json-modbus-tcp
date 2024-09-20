@@ -28,6 +28,7 @@ impl tokio_modbus::server::Service for ModbusService {
     type Future = future::Ready<Result<Response, Exception>>;
     
     fn call(&self, req: Self::Request) -> Self::Future {
+        println!("Request: {:?}", req);
         match req {
             Request::ReadCoils(addr, cnt) => future::ready(
                 self.manager.read_register(RegisterType::Coils, addr, cnt)
@@ -56,7 +57,7 @@ impl tokio_modbus::server::Service for ModbusService {
             ),
             Request::WriteSingleRegister(addr, value) => future::ready(
                 self.manager.write_register(RegisterType::HoldingRegisters, addr, &[value])
-                    .map(|_| Response::WriteMultipleRegisters(addr, 1))
+                    .map(|_| Response::WriteSingleRegister(addr, 1))
                     .map_err(|e| e.into())
             ),
             _ => {
