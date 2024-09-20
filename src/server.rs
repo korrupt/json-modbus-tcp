@@ -8,7 +8,7 @@ use crate::json;
 use crate::register_manager::RegisterManager;
 use crate::service::ModbusService;
 
-pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration) -> anyhow::Result<()> {
+pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration, debug: bool) -> anyhow::Result<()> {
     println!("Starting up server on {socket_addr}");
 
     let listener = TcpListener::bind(socket_addr).await?;
@@ -16,7 +16,7 @@ pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration)
 
     let manager = Arc::new(
         match json::load("data.json")
-            .and_then(|v| RegisterManager::from_json(v)) {
+            .and_then(|v| RegisterManager::from_json(v, debug)) {
                 Ok(v) => v,
                 Err(e) => {
                     eprintln!("Failed to loading json. Using empty registers. Error: {e}");
@@ -25,11 +25,15 @@ pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration)
             }
     );
 
-    let new_service = |_addr| {
+    let new_service = |_addr: SocketAddr| {
         Ok(Some(ModbusService::new(manager.clone())))
     };
 
-    let on_connected = |stream, socket_addr| async move {
+    let on_connected = |stream, socket_addr: SocketAddr| async move {
+        if debug {
+            println!("New connection: {}", socket_addr.ip());
+        }
+        
         accept_tcp_connection(stream, socket_addr, &new_service)
     };
 

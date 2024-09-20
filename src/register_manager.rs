@@ -32,6 +32,7 @@ impl Default for RegisterManager {
             coils: Arc::new(RwLock::new(coils)),
             holding_registers: Arc::new(RwLock::new(holding_registers)),
             input_registers: Arc::new(RwLock::new(input_registers)),
+            debug: false,
         }
     }
 }
@@ -41,6 +42,7 @@ pub struct RegisterManager {
     coils: Arc<RwLock<Register>>,   
     holding_registers: Arc<RwLock<Register>>,   
     input_registers: Arc<RwLock<Register>>,
+    debug: bool,
 }
 
 #[allow(dead_code)]
@@ -51,17 +53,29 @@ pub enum RegisterType {
     InputRegisters
 }
 
+impl std::fmt::Display for RegisterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RegisterType::Coils => f.write_str("Coils"),
+            RegisterType::HoldingRegisters => f.write_str("Holding Registers"),
+            RegisterType::InputRegisters => f.write_str("Input Registers"),
+            RegisterType::Inputs => f.write_str("Inputs"),
+        }
+    }
+}
+
 impl RegisterManager {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn from_json(json: Value) -> Result<Self, JsonError> {
+    pub fn from_json(json: Value, debug: bool) -> Result<Self, JsonError> {
         let JsonResult { coils, holding_registers, .. } = json::parse(json)?;
 
         Ok(RegisterManager {
             coils: Arc::new(RwLock::new(coils)),
             holding_registers: Arc::new(RwLock::new(holding_registers)),
+            debug,
             ..Default::default()
         })
     }
@@ -76,7 +90,9 @@ impl RegisterManager {
     }
 
     pub fn update_persistence(&self) -> Result<(), RegisterError> {
-        println!("Updating persistence");
+        if self.debug {
+            println!("Updating persistence");
+        }
 
         let result = self.to_json();
 
@@ -104,6 +120,10 @@ impl RegisterManager {
     ) -> Result<Vec<u16>, RegisterError> {
         let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
+        if self.debug {
+            println!("Read {} addr: {} Cnt: {:?}", registers_type, addr, cnt);
+        }
+
         {
             let registers = self.register_select(registers_type)
                 .read()
@@ -128,6 +148,10 @@ impl RegisterManager {
         values: &[u16],
     ) -> Result<(), RegisterError> {
         {
+            if self.debug {
+                println!("Write {} addr: {} Data: {:?}", registers_type, addr, values);
+            }
+
             let mut registers = self.register_select(registers_type)
                 .write()
                 .unwrap();
@@ -176,7 +200,7 @@ mod register_tests {
             "40200": 69696969,
         });
 
-        let _ = RegisterManager::from_json(data).unwrap();
+        let _ = RegisterManager::from_json(data, false).unwrap();
         assert!(true);
         
         Ok(())

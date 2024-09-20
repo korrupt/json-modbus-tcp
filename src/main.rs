@@ -24,6 +24,10 @@ struct Args {
     /// How often to update persistence
     #[clap(short('f'), default_value = "1s", value_parser = validate_time)]
     update_frequency: Duration,
+
+    /// Debug mode
+    #[clap(long)]
+    debug: bool
 }
 
 fn validate_time(val: &str) -> Result<Duration, String> {
@@ -51,10 +55,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let ip_address = Ipv4Addr::from_str(&args.target).expect("Invalid IP address:");
-
     let socket_addr: SocketAddr = (ip_address, args.port).into();
+    let debug = args.debug;
 
-    server::server_context(socket_addr, args.update_frequency).await?;
+    if debug {
+        println!("STARTING IN DEBUG MODE");
+    }
+
+    server::server_context(socket_addr, args.update_frequency, debug).await?;
     
     Ok(())
 }
