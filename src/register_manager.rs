@@ -118,6 +118,10 @@ impl RegisterManager {
         addr: u16,
         cnt: u16
     ) -> Result<Vec<u16>, RegisterError> {
+        if addr < 40001 {
+            return Err(RegisterError::OutOfBounds)
+        }
+
         let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
         if self.debug {
