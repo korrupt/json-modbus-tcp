@@ -7,6 +7,7 @@ mod server;
 mod util;
 mod json;
 mod register_manager;
+mod python_struct;
 
 
 

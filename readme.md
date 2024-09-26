@@ -16,6 +16,11 @@ Used as a proxy between the Bryte stack and TGN stack. Writte in async rust.
 | SYS_TOT_SOC                       | 40006   | 1      | uint16 |
 | SYS_REQ_SETPOINT                  | 40007   | 1      | uint16 |
 | SYS_AVAILABLE_POWER               | 40008   | 1      | uint16 |
+| SYS_SOLAR_1_W                     | 40009   | 1      | uint16 |
+| SYS_SOLAR_2_W                     | 40010   | 1      | uint16 |
+| SYS_SOLAR_3_W                     | 40011   | 1      | uint16 |
+| SYS_SOLAR_4_W                     | 40012   | 1      | uint16 |
+| SYS_BUILDING_IN_W                 | 40013   | 1      | uint16 |
 | AMS_KW (**WIP**)                  | 40100   | 1      | uint16 |
 | CMD_REQ_SETPOINT_KW               | 40200   | 1      | int16  |
 
