@@ -1,3 +1,5 @@
+use num_traits::PrimInt;
+
 
 #[derive(PartialEq, Debug)]
 
@@ -5,18 +7,32 @@ pub enum PackType {
     U16,
     I16,
     U32,
-    I32
+    I32,
+    U64,
+    I64
 }
 
 impl PackType {
     fn from_char(value: &u8) -> Option<Self> {
-        println!("char: {:?}", value);
         match value {
             b'h' => Some(PackType::I16),
             b'H' => Some(PackType::U16),
             b'i' => Some(PackType::I32),
             b'I' => Some(PackType::U32),
+            b'q' => Some(PackType::I64),
+            b'Q' => Some(PackType::U64),
             _ => None
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match &self {
+            PackType::U16 |
+            PackType::I16 => 1,
+            PackType::U32 |
+            PackType::I32 => 2,
+            PackType::U64 |
+            PackType::I64 => 4,
         }
     }
 }

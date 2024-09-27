@@ -37,3 +37,24 @@ This is done with `cargo run`
 
 ## Running tests
 Easily done with `cargo run test`
+
+| Name                               | Address | Length | Type   | read/write |
+| ---------------------------------- | ------- | ------ | ------ | ---------- |
+| **Coils** (Read/Write)             |         |        |        |            |
+| Battery ON/OFF                     | 00001   | 1 bit  | bit    | read/write |
+| MQTT Command Acknowledged          | 00100   | 1 bit  | bit    | read       |
+| **Holding Registers** (Read/Write) |         |        |        |            |
+| BATTERY STATE                      | 40001   | 1 byte | UINT16 | read       |
+| PREVIOUS BATTERY STATE             | 40002   | 1 byte | UINT16 | read       |
+| TOTAL BATTERY SOC ( Averange)      | 40003   | 1 byte | UINT16 | read       |
+| REQ_SETPOINT (read only)           | 40004   | 1 byte | UINT16 | read       |
+| AVAILABLE_BATTERY_POWER( kW)       | 40005   | 1 byte | UINT16 | read       |
+| AVAILABLE BAT CAPASITY( kWh)       | 40006   | 1 byte | UINT16 | read       |
+|                                    |         |        |        |            |
+| TOTAL DELIVERED POWER (+- Watts)   | 40007   | 2 byte | INT32  | read       |
+| TOTAL DELIVERED POWER (+- kW)      | 40009   | 2 byte | INT32  | read       |
+|                                    |         |        |        |            |
+| SOLAR POWER ( main building)       | 40030   | 2 byte | INT32  | read       |
+| SOLAR POWER ( BARN building)       | 40032   | 2 byte | INT32  | read       |
+|                                    |         |        |        |            |
+| CMD_REQ_SETPOINT_KW                | 40200   | 1      | int16  | read/write |
