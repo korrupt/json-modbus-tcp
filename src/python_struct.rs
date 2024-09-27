@@ -1,23 +1,7 @@
-#[derive(PartialEq, Debug)]
-
-pub enum Endianness {
-    BigEndian,
-    LittleEndian
-}
-
-impl Endianness {
-    pub fn from_char(value: &u8) -> Option<Self> {
-        match value {
-            b'<' => Some(Endianness::LittleEndian),
-            b'>' => Some(Endianness::BigEndian),
-            _ => None,
-        }
-    }
-}
 
 #[derive(PartialEq, Debug)]
 
-enum PackType {
+pub enum PackType {
     U16,
     I16,
     U32,
@@ -26,6 +10,7 @@ enum PackType {
 
 impl PackType {
     fn from_char(value: &u8) -> Option<Self> {
+        println!("char: {:?}", value);
         match value {
             b'h' => Some(PackType::I16),
             b'H' => Some(PackType::U16),
@@ -39,47 +24,40 @@ impl PackType {
 
 #[derive(PartialEq, Debug)]
 pub struct PackFormat {
-    endianness: Endianness,
-    pack_type: PackType,
+    pub address: u16,
+    pub pack_type: PackType,
 }
 
-impl Default for PackFormat {
-    fn default() -> Self {
-        PackFormat {
-            endianness: Endianness::BigEndian,
-            pack_type: PackType::U16,
+
+impl PackFormat {
+    pub fn parse(addr: &str) -> Result<Self, PackError> {
+        // Check if there's a '/' in the string
+        if let Some(idx) = addr.find('/') {
+            // Parse the address (before the '/')
+            let address = addr[..idx].parse::<u16>().map_err(|_| PackError::Unsupported)?;
+
+            // Get the part after the '/'
+            addr.get(idx + 1..)
+                .ok_or(PackError::Unsupported)  // Error if nothing after the '/'
+                .and_then(|type_slice| match type_slice.as_bytes() {
+                    // Check if it's a valid single character format
+                    [format] => {
+                        PackType::from_char(format)
+                            .ok_or(PackError::Unsupported)  // Handle unsupported pack type
+                    },
+                    _ => Err(PackError::Unsupported),  // Error if invalid format
+                })
+                .map(|pack_type| PackFormat { address, pack_type })
+        } else {
+            // No '/', default to U16 and parse the address
+            let address = addr.parse::<u16>().map_err(|_| PackError::Unsupported)?;
+            Ok(PackFormat { address, pack_type: PackType::U16 })
         }
     }
 }
 
-impl PackFormat {
-    pub fn parse(addr: &str) -> Result<Self, PackError> {
-        // check if there's any conf
-        addr.find('/')
-            .and_then(|idx| addr.get(idx + 1..))
-            // error early if there's no characters after the '/'
-            .ok_or(PackError::Unsupported)
-            // parse whether theres 1 or 2 characters
-            .and_then(|type_slice| match type_slice.as_bytes() {
-                [endianness, format] => {
-                    Endianness::from_char(endianness)
-                        .and_then(|e| PackType::from_char(format).map(|p| (e, p)))
-                        .ok_or(PackError::Unsupported)
-                },
-                [format] => {
-                    PackType::from_char(format)
-                        .map(|p| (Endianness::BigEndian, p))
-                        .ok_or(PackError::Unsupported)
-                },
-                _ => Err(PackError::Unsupported),
-            })
-            .map(|(endianness, pack_type)| PackFormat { endianness, pack_type })
-            .or_else(|_| Ok(Default::default()))
-    }
-}
 
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PackError {
     Unsupported
 }
@@ -91,13 +69,14 @@ pub mod test {
     use crate::python_struct::*;
 
     #[test]
-    pub fn test_32bit_int() -> Result<(), anyhow::Error> {
+    pub fn test_packformat_parse() -> Result<(), anyhow::Error> {
 
-        assert_eq!(PackFormat::parse("40001/h").unwrap(), PackFormat { endianness: Endianness::BigEndian, pack_type: PackType::I16 });
-        assert_eq!(PackFormat::parse("40311/H").unwrap(), PackFormat { endianness: Endianness::BigEndian, pack_type: PackType::U16 });
-        assert_eq!(PackFormat::parse("40311/i").unwrap(), PackFormat { endianness: Endianness::BigEndian, pack_type: PackType::I32 });
-        assert_eq!(PackFormat::parse("40311/>i").unwrap(), PackFormat { endianness: Endianness::BigEndian, pack_type: PackType::I32 });
-        assert_eq!(PackFormat::parse("40311/<I").unwrap(), PackFormat { endianness: Endianness::LittleEndian, pack_type: PackType::U32 });
+        assert_eq!(PackFormat::parse("40001/h").unwrap(), PackFormat { address: 40001, pack_type: PackType::I16 });
+        assert_eq!(PackFormat::parse("40311/H").unwrap(), PackFormat { address: 40311, pack_type: PackType::U16 });
+        assert_eq!(PackFormat::parse("40311/i").unwrap(), PackFormat { address: 40311, pack_type: PackType::I32 });
+        assert_eq!(PackFormat::parse("40311/I").unwrap(), PackFormat { address: 40311, pack_type: PackType::U32 });
+        assert_eq!(PackFormat::parse("40311/<"), Err(PackError::Unsupported));
+        assert_eq!(PackFormat::parse("40311").unwrap(), PackFormat { address: 40311, pack_type: PackType::U16});
 
         Ok(())
     }
