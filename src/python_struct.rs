@@ -1,8 +1,4 @@
-use num_traits::PrimInt;
-
-
 #[derive(PartialEq, Debug)]
-
 pub enum PackType {
     U16,
     I16,

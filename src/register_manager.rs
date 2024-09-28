@@ -96,9 +96,9 @@ impl RegisterManager {
 
         let result = self.to_json();
 
-        if let Err(e) = json::write(&result, "data.json") {
-            eprintln!("Error updating persistence: {:?}", e);
-        }
+        // if let Err(e) = json::write(&result, "data.json") {
+        //     eprintln!("Error updating persistence: {:?}", e);
+        // }
 
         Ok(())
     }
