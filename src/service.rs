@@ -103,12 +103,18 @@ mod tests {
         util::AsWords,
     };
     use std::sync::Arc;
+    use serde_json::json;
     use tokio::test;
     use tokio_modbus::{server::Service, Request};
 
     #[test]
     pub async fn read_register_test() -> Result<(), anyhow::Error> {
-        let register_manager = Arc::new(RegisterManager::new());
+
+        let json = json!({
+            "40007/Q": 42, 
+        });
+
+        let register_manager = Arc::new(RegisterManager::from_json(json, false).unwrap());
         let service = ModbusService::new(register_manager.clone());
 
         let value: u64 = 42;

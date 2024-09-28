@@ -68,14 +68,12 @@ pub fn write(value: serde_json::Value, path: &str) -> Result<(), JsonError> {
     Ok(())
 }
 
-pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
-    let mut coils: Register = HashMap::new();
-    let mut holding_registers: Register = HashMap::new();
-    let mut inputs: Register = HashMap::new();
-    let mut input_registers: Register = HashMap::new();
-
+pub fn parse(data: Value) -> Result<(HashMap<u16, u16>, Vec<String>), JsonError> {
 
     if let Value::Object(ref map) = data {
+        let keys: Vec<String> = map.keys().cloned().collect();
+        let mut registers: HashMap<u16, u16> = HashMap::new(); // #TODO! measure length in advance
+
         for (k, v) in map {
             let PackFormat { address, pack_type } = PackFormat::parse(k).map_err(|_| JsonError::Invalid(format!("Error parsing key '{}'", k)))?;
             
@@ -90,14 +88,8 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
                     let bit = number.as_i64()
                         .filter(|&n| n == 0 || n == 1)
                         .ok_or_else(|| JsonError::Invalid(format!("Key '{}' should be 0 or 1", k)))? as u16;
-
-                    let register: &mut Register = match address {
-                        1..=9999 => &mut coils,
-                        10001..=19999 => &mut inputs,
-                        _ => unreachable!()
-                    };
                     
-                    register.insert(address, bit);
+                    registers.insert(address, bit);
                 },
                 30001..=39999 | 
                 40001..=49999 => {
@@ -124,15 +116,9 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
                         )
                         .ok_or(JsonError::Invalid(format!("Error converting key {} to type {:?}", address, pack_type)))?;
                     
-                
-                    let register: &mut Register = match address {
-                        30001..=39999 => &mut input_registers,
-                        40001..=49999 => &mut holding_registers,
-                        _ => unreachable!()
-                    };
 
                     for (idx, byte) in bytes.iter().enumerate() {
-                        if register.insert(address + idx as u16, *byte).is_some() {
+                        if registers.insert(address + idx as u16, *byte).is_some() {
                             return Err(JsonError::Invalid(format!("Overwrote register at key '{}'", address)));
                         }
                     }
@@ -141,19 +127,21 @@ pub fn parse(data: Value) -> Result<JsonResult, JsonError> {
             }
         }
 
+        Ok((registers, keys))
+
     } else {
         return Err(JsonError::Invalid("data is not an object".into()))
     }
 
 
-    Ok(JsonResult { coils, inputs, input_registers, holding_registers })
+    
 }
 
-pub fn registers_to_object(registers: &HashMap<u16, u16>, keys: &[&str]) -> Result<serde_json::Value, JsonError> {
+pub fn registers_to_object(registers: &HashMap<u16, u16>, keys: Vec<String>) -> Result<serde_json::Value, JsonError> {
     let mut json: Map<String, Value> = Map::new();
 
-    for &key in keys {
-        let PackFormat { address, pack_type } = PackFormat::parse(key).map_err(|_| JsonError::Other(format!("Failed to parse {}", key)))?;
+    for key in keys {
+        let PackFormat { address, pack_type } = PackFormat::parse(key.as_str()).map_err(|_| JsonError::Other(format!("Failed to parse {}", key)))?;
 
         // Collect bytes based on specific addresses
         let bytes: Vec<&u16> = (address..address + pack_type.len() as u16)
@@ -291,24 +279,24 @@ mod tests {
             "40300/q": -1,
         });
 
-        let result = parse(data).map_err(|e| e.to_string())?;
-        assert!(result.holding_registers.get(&40003).unwrap() == &(124i16 as u16));
-        assert!(result.holding_registers.get(&40004).unwrap() == &(124i16 as u16));
-        assert!(result.holding_registers.get(&40100).unwrap() == &(-1i16 as u16));
-        assert!(result.holding_registers.get(&40008).unwrap() == &(32u16));
+        let (registers, keys): (HashMap<u16, u16>, Vec<String>) = parse(data).map_err(|e| e.to_string())?;
+        assert!(registers.get(&40003).unwrap() == &(124i16 as u16));
+        assert!(registers.get(&40004).unwrap() == &(124i16 as u16));
+        assert!(registers.get(&40100).unwrap() == &(-1i16 as u16));
+        assert!(registers.get(&40008).unwrap() == &(32u16));
         assert_eq!(
             [
-                *result.holding_registers.get(&40200).unwrap(),
-                *result.holding_registers.get(&40201).unwrap(),
+                *registers.get(&40200).unwrap(),
+                *registers.get(&40201).unwrap(),
             ],
             [0xFFFF as u16, 0xFFF6 as u16]
         );
         assert_eq!(
             [
-                *result.holding_registers.get(&40300).unwrap(),
-                *result.holding_registers.get(&40301).unwrap(),
-                *result.holding_registers.get(&40302).unwrap(),
-                *result.holding_registers.get(&40303).unwrap(),
+                *registers.get(&40300).unwrap(),
+                *registers.get(&40301).unwrap(),
+                *registers.get(&40302).unwrap(),
+                *registers.get(&40303).unwrap(),
             ],
             [0xFFFF as u16, 0xFFFF as u16, 0xFFFF as u16, 0xFFFF as u16]
         );
@@ -332,9 +320,9 @@ mod tests {
             (40203, 0xFFFF),
         ]);
 
-        let keys: Vec<&'static str> = vec!["1/h", "2", "3", "9", "40001/i", "40200/Q"];
+        let keys: Vec<String> = vec!["1/h".into(), "2".into(), "3".into(), "9".into(), "40001/i".into(), "40200/Q".into()];
 
-        if let Value::Object(map) = registers_to_object(&registers, &keys).map_err(|e| e.to_string())? {
+        if let Value::Object(map) = registers_to_object(&registers, keys).map_err(|e| e.to_string())? {
 
             assert_eq!(
                 map.get("1/h").unwrap().to_string(),
@@ -370,9 +358,9 @@ mod tests {
             (40202, 0x0000),
             (40203, 0xFFFF),
         ]);
-        let keys: Vec<&'static str> = vec!["1/h", "2", "3", "9", "40001/i", "40200/Q"];
+        let keys: Vec<String> = vec!["1/h".into(), "2".into(), "3".into(), "9".into(), "40001/i".into(), "40200/Q".into()];
 
-        let value = registers_to_object(&registers, &keys).unwrap();
+        let value = registers_to_object(&registers, keys).unwrap();
         let value_str = serde_json::to_string_pretty(&value).unwrap();
 
         write(value, path).unwrap();

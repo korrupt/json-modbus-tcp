@@ -33,6 +33,7 @@ impl Default for RegisterManager {
             holding_registers: Arc::new(RwLock::new(holding_registers)),
             input_registers: Arc::new(RwLock::new(input_registers)),
             debug: false,
+            keys: vec![],
         }
     }
 }
@@ -43,6 +44,7 @@ pub struct RegisterManager {
     holding_registers: Arc<RwLock<Register>>,   
     input_registers: Arc<RwLock<Register>>,
     debug: bool,
+    keys: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -70,13 +72,32 @@ impl RegisterManager {
     }
 
     pub fn from_json(json: Value, debug: bool) -> Result<Self, JsonError> {
-        let JsonResult { coils, holding_registers, .. } = json::parse(json)?;
+        // let JsonResult { coils, holding_registers, .. } = json::parse(json)?;
+        let (registers, keys) = json::parse(json)?;
+
+        let coils = registers.keys().into_iter().cloned()
+            .filter(|&key| key >= 1 && key <= 9999)
+            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone())))).collect();
+
+        let inputs = registers.keys().into_iter().cloned()
+            .filter(|&key| key >= 10001 && key <= 19999)
+            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone())))).collect();
+
+        let input_registers = registers.keys().into_iter().cloned()
+            .filter(|&key| key >= 30001 && key <= 39999)
+            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone())))).collect();
+
+        let holding_registers = registers.keys().into_iter().cloned()
+            .filter(|&key| key >= 40001 && key <= 49999)
+            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone())))).collect();
 
         Ok(RegisterManager {
             coils: Arc::new(RwLock::new(coils)),
+            inputs: Arc::new(RwLock::new(inputs)),
+            input_registers: Arc::new(RwLock::new(input_registers)),
             holding_registers: Arc::new(RwLock::new(holding_registers)),
             debug,
-            ..Default::default()
+            keys,
         })
     }
 
@@ -94,11 +115,23 @@ impl RegisterManager {
             println!("Updating persistence");
         }
 
-        let result = self.to_json();
+        let coils = self.coils.read().unwrap().clone();
+        let inputs = self.inputs.read().unwrap().clone();
+        let input_registers = self.input_registers.read().unwrap().clone();
+        let holding_registers = self.holding_registers.read().unwrap().clone();
 
-        // if let Err(e) = json::write(&result, "data.json") {
-        //     eprintln!("Error updating persistence: {:?}", e);
-        // }
+        let registers: HashMap<u16, u16> = coils.into_iter()
+            .chain(inputs.into_iter())
+            .chain(input_registers.into_iter())
+            .chain(holding_registers.into_iter())
+            .collect();
+
+        let value = json::registers_to_object(&registers, self.keys.clone()).unwrap();
+        
+
+        if let Err(e) = json::write(value, "data.json") {
+            eprintln!("Error updating persistence: {:?}", e);
+        }
 
         Ok(())
     }
@@ -118,9 +151,9 @@ impl RegisterManager {
         addr: u16,
         cnt: u16
     ) -> Result<Vec<u16>, RegisterError> {
-        if addr < 40001 {
-            return Err(RegisterError::OutOfBounds)
-        }
+        // if addr < 40001 {
+        //     return Err(RegisterError::OutOfBounds)
+        // }
 
         let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
@@ -190,18 +223,18 @@ mod register_tests {
     #[test]
     pub fn test_from_json() -> anyhow::Result<()> {
         let data = json!({
-            "1": false,
-            "100": true,
+            "1": 1,
+            "100": 1,
             "40001": 1,
             "40002": 1,
             "40003": 20000,
-            "40007": 69696969,
-            "40011": 69696969,
-            "40015": 69696969,
-            "40019": 69696969,
-            "40023": 69696969,
-            "40100": 69696969,
-            "40200": 69696969,
+            "40007": 10,
+            "40011": 10,
+            "40015": 10,
+            "40019": 10,
+            "40023": 10,
+            "40100": 10,
+            "40200": 10,
         });
 
         let _ = RegisterManager::from_json(data, false).unwrap();
