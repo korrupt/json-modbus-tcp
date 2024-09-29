@@ -19,11 +19,12 @@ pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration,
             .and_then(|v| RegisterManager::from_json(v, debug)) {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!("Failed to loading json. Using empty registers. Error: {e}");
-                    RegisterManager::new()
+                    println!("Failed to loading json. Using empty registers. Error: {e}");
+                    RegisterManager::new(debug)
                 }
             }
     );
+
 
     let new_service = |_addr: SocketAddr| {
         Ok(Some(ModbusService::new(manager.clone())))

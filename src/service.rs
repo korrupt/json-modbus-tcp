@@ -48,11 +48,19 @@ impl tokio_modbus::server::Service for ModbusService {
                     .map(Response::ReadInputRegisters)
                     .map_err(|e| e.into()),
             ),
+            Request::ReadDiscreteInputs(addr, cnt) => future::ready(
+                self.manager
+                    .read_register(RegisterType::Inputs, addr, cnt)
+                    .map(|reg| {
+                        Response::ReadDiscreteInputs(reg.iter().map(|v| *v == 1).collect::<Vec<bool>>())
+                    })
+                    .map_err(|e| e.into()),
+            ),
             Request::ReadHoldingRegisters(addr, cnt) => future::ready(
                 self.manager
                     .read_register(
                         RegisterType::HoldingRegisters,
-                        pad_holding_register(addr),
+                        addr,
                         cnt,
                     )
                     .map(Response::ReadHoldingRegisters)
@@ -62,7 +70,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 self.manager
                     .write_register(
                         RegisterType::HoldingRegisters,
-                        pad_holding_register(addr),
+                        addr,
                         &values,
                     )
                     .map(|_| Response::WriteMultipleRegisters(addr, values.len() as u16))
@@ -72,7 +80,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 self.manager
                     .write_register(
                         RegisterType::HoldingRegisters,
-                        pad_holding_register(addr),
+                        addr,
                         &[value],
                     )
                     .map(|_| Response::WriteSingleRegister(addr, 1))
