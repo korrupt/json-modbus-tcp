@@ -154,6 +154,10 @@ mod test {
         assert!(write.as_ref().is_some_and(|r| r.iter().any(|r| r.contains("127.0.0.1".parse().unwrap()))));
         assert!(write.as_ref().is_some_and(|r| r.iter().any(|r| r.contains("10.0.0.25".parse().unwrap()))));
 
+
+        assert!(parse_whitelist(vec![])?.0.is_none());
+        assert!(parse_whitelist(vec![])?.1.is_none());
+
         Ok(())
     }
 
