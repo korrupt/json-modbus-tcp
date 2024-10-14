@@ -1,6 +1,7 @@
 use std::thread;
 use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc};
+use ipnetwork::IpNetwork;
 use tokio::net::TcpListener;
 
 use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
@@ -8,30 +9,39 @@ use crate::json;
 use crate::register_manager::RegisterManager;
 use crate::service::ModbusService;
 
-pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration, debug: bool) -> anyhow::Result<()> {
-    println!("Starting up server on {socket_addr}");
 
-    let listener = TcpListener::bind(socket_addr).await?;
-    let server = Server::new(listener);
+pub struct ServerConfig {
+    pub socket_addr: SocketAddr,
+    pub update_frequency: Duration,
+    pub debug: bool,
+    pub read_whitelist: Option<Vec<IpNetwork>>,
+    pub write_whitelist: Option<Vec<IpNetwork>>,
+}
+
+pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
+    println!("Starting up server on {}", config.socket_addr.to_string());
+
+    let listener = TcpListener::bind(config.socket_addr).await?;
 
     let manager = Arc::new(
         match json::load("data.json")
-            .and_then(|v| RegisterManager::from_json(v, debug)) {
+            .and_then(|v| RegisterManager::from_json(v, config.debug)) {
                 Ok(v) => v,
                 Err(e) => {
                     println!("Failed to loading json. Using empty registers. Error: {e}");
-                    RegisterManager::new(debug)
+                    RegisterManager::new(config.debug)
                 }
             }
     );
 
+    let server = Server::new(listener);
 
-    let new_service = |_addr: SocketAddr| {
-        Ok(Some(ModbusService::new(manager.clone())))
+    let new_service = |addr: SocketAddr| {
+        Ok(Some(ModbusService::new(manager.clone(), addr.ip(), config.read_whitelist.clone(), config.write_whitelist.clone())))
     };
 
     let on_connected = |stream, socket_addr: SocketAddr| async move {
-        if debug {
+        if config.debug {
             println!("New connection: {}", socket_addr.ip());
         }
         
@@ -40,9 +50,9 @@ pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration,
 
     let on_process_error = |err| {
         eprintln!("{err}");
-    };
+    };    
 
-    new_service(socket_addr)?;
+    new_service(config.socket_addr)?;
 
     let persistence_clone = manager.clone();
     let (tx_stop, rx_stop) = std::sync::mpsc::channel::<()>();
@@ -53,7 +63,7 @@ pub async fn server_context(socket_addr: SocketAddr, update_frequency: Duration,
                 break;
             }
 
-            thread::sleep(update_frequency);
+            thread::sleep(config.update_frequency);
             if let Err(e) = persistence_clone.update_persistence() {
                 eprint!("Error updating persistence: {:?}", e);
             }

@@ -1,14 +1,28 @@
 use crate::register_manager::{RegisterError, RegisterManager, RegisterType};
-use std::{future, sync::Arc};
+use ipnetwork::IpNetwork;
+use std::{future, net::IpAddr, sync::Arc};
 use tokio_modbus::{Exception, Request, Response};
 
 pub struct ModbusService {
     manager: Arc<RegisterManager>,
+    read_whitelist: Option<Vec<IpNetwork>>,
+    write_whitelist: Option<Vec<IpNetwork>>,
+    ip_addr: IpAddr,
 }
 
 impl ModbusService {
-    pub fn new(manager: Arc<RegisterManager>) -> Self {
-        ModbusService { manager }
+    pub fn new(
+        manager: Arc<RegisterManager>,
+        ip_addr: IpAddr,
+        read_whitelist: Option<Vec<IpNetwork>>,
+        write_whitelist: Option<Vec<IpNetwork>>,
+    ) -> Self {
+        ModbusService {
+            manager,
+            read_whitelist,
+            write_whitelist,
+            ip_addr,
+        }
     }
 }
 
@@ -26,7 +40,46 @@ impl tokio_modbus::server::Service for ModbusService {
     type Future = future::Ready<Result<Response, Exception>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        println!("Request: {:?}", req);
+        if self
+            .read_whitelist
+            .as_ref()
+            .is_some_and(|w| !w.iter().any(|ip| ip.contains(self.ip_addr)))
+            && matches!(
+                req,
+                Request::WriteMultipleCoils(_, _)
+                    | Request::WriteSingleCoil(_, _)
+                    | Request::WriteMultipleRegisters(_, _)
+                    | Request::WriteSingleRegister(_, _)
+            )
+        {
+            println!(
+                "Blocked request {:?} from {}",
+                req,
+                self.ip_addr.to_canonical().to_string()
+            );
+            return future::ready(Err(Exception::ServerDeviceFailure));
+        }
+
+        if self
+            .write_whitelist
+            .as_ref()
+            .is_some_and(|w| !w.iter().any(|ip| ip.contains(self.ip_addr)))
+            && matches!(
+                req,
+                Request::ReadCoils(_, _)
+                    | Request::ReadDiscreteInputs(_, _)
+                    | Request::ReadHoldingRegisters(_, _)
+                    | Request::ReadInputRegisters(_, _)
+            )
+        {
+            println!(
+                "Blocked request {:?} from {}",
+                req,
+                self.ip_addr.to_canonical().to_string()
+            );
+            return future::ready(Err(Exception::ServerDeviceFailure));
+        }
+
         match req {
             Request::ReadCoils(addr, cnt) => future::ready(
                 self.manager
@@ -52,37 +105,27 @@ impl tokio_modbus::server::Service for ModbusService {
                 self.manager
                     .read_register(RegisterType::Inputs, addr, cnt)
                     .map(|reg| {
-                        Response::ReadDiscreteInputs(reg.iter().map(|v| *v == 1).collect::<Vec<bool>>())
+                        Response::ReadDiscreteInputs(
+                            reg.iter().map(|v| *v == 1).collect::<Vec<bool>>(),
+                        )
                     })
                     .map_err(|e| e.into()),
             ),
             Request::ReadHoldingRegisters(addr, cnt) => future::ready(
                 self.manager
-                    .read_register(
-                        RegisterType::HoldingRegisters,
-                        addr,
-                        cnt,
-                    )
+                    .read_register(RegisterType::HoldingRegisters, addr, cnt)
                     .map(Response::ReadHoldingRegisters)
-                    .map_err(|e| e.into())
+                    .map_err(|e| e.into()),
             ),
             Request::WriteMultipleRegisters(addr, values) => future::ready(
                 self.manager
-                    .write_register(
-                        RegisterType::HoldingRegisters,
-                        addr,
-                        &values,
-                    )
+                    .write_register(RegisterType::HoldingRegisters, addr, &values)
                     .map(|_| Response::WriteMultipleRegisters(addr, values.len() as u16))
                     .map_err(|e| e.into()),
             ),
             Request::WriteSingleRegister(addr, value) => future::ready(
                 self.manager
-                    .write_register(
-                        RegisterType::HoldingRegisters,
-                        addr,
-                        &[value],
-                    )
+                    .write_register(RegisterType::HoldingRegisters, addr, &[value])
                     .map(|_| Response::WriteSingleRegister(addr, 1))
                     .map_err(|e| e.into()),
             ),
@@ -110,20 +153,24 @@ mod tests {
         register_manager::{RegisterManager, RegisterType},
         util::AsWords,
     };
-    use std::sync::Arc;
     use serde_json::json;
+    use std::sync::Arc;
     use tokio::test;
     use tokio_modbus::{server::Service, Request};
 
     #[test]
     pub async fn read_register_test() -> Result<(), anyhow::Error> {
-
         let json = json!({
-            "40007/Q": 42, 
+            "40007/Q": 42,
         });
 
         let register_manager = Arc::new(RegisterManager::from_json(json, false).unwrap());
-        let service = ModbusService::new(register_manager.clone());
+        let service = ModbusService::new(
+            register_manager.clone(),
+            "0.0.0.0".parse().unwrap(),
+            None,
+            None,
+        );
 
         let value: u64 = 42;
         let value_arr = value.as_words();
@@ -151,4 +198,3 @@ mod tests {
         Ok(())
     }
 }
-
