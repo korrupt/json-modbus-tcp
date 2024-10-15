@@ -39,6 +39,18 @@ The program will look for a `data.json` file in the same folder as itself. The r
 ## Modbus quirks
 Modbus in itself is not actually completely defined standard. As a result of this, in cases where one asks for "holding register 1", it is upto the implementation of said register to decide what "address 1" actually is. To better fit the various requirements, a "padding" command line argument will be added later, but as of now you have to ask for the full address, i.e. "40001" for "holding register #1".
 
+## Read/Write whitelist &nbsp;&nbsp;&nbsp; [-W]
+A optional whitelist system has been implemented, and uses CIDR notation in addition to an also optional `:<r/w/rw>` extension (none means rw). Mutliple rules can be added, separated by commas. Note: only ipv4 is supported. It is configured as follows:
+
+`-W 10.0.0.1/24`
+: *allows read-write for 10.0.0.1 to 10.0.0.255*
+
+`-W 10.0.0.1/28:r,127.0.0.1,0.0.0.0:w`
+: *allows read-write for 127.0.0.1*
+: *allows read for 10.0.0.1 to 10.0.0.15*
+: *allows write for 0.0.0.0*
+
+
 ## Credit
 This software was made possible because of the efforts made in the [serde_json](https://github.com/serde-rs/json) and [tokio-modbus](https://github.com/slowtec/tokio-modbus) open source projects.
 
