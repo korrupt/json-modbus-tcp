@@ -57,7 +57,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 req,
                 self.ip_addr.to_canonical().to_string()
             );
-            return future::ready(Err(Exception::ServerDeviceFailure));
+            return future::ready(Err(Exception::IllegalDataValue));
         }
 
         if self
@@ -77,7 +77,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 req,
                 self.ip_addr.to_canonical().to_string()
             );
-            return future::ready(Err(Exception::ServerDeviceFailure));
+            return future::ready(Err(Exception::IllegalDataValue));
         }
 
         match req {
