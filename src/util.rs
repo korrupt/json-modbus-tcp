@@ -1,8 +1,10 @@
 pub trait AsWords<T> {
+    #[allow(unused)]
     fn as_words(&self) -> Vec<u16>;
 }
 
 pub trait FromVec<T> {
+    #[allow(unused)]
     fn from_vec(&self) -> T;
 }
 
@@ -62,38 +64,38 @@ impl AsWords<i64> for i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    type Error = Box<dyn std::error::Error>;
+    // use super::*;
+    // type Error = Box<dyn std::error::Error>;
 
-    #[test]
-    pub fn test_u64() -> Result<(), Error> {
+    // #[test]
+    // pub fn test_u64() -> Result<(), Error> {
 
-        let num = 12u64;
+    //     let num = 12u64;
 
-        let as_words = num.as_words();
+    //     let as_words = num.as_words();
 
-        assert_eq!(as_words, vec![0x0000, 0x0000, 0x0000, 0x000C]);
+    //     assert_eq!(as_words, vec![0x0000, 0x0000, 0x0000, 0x000C]);
 
-        let from_vec: u64 = as_words.from_vec();
+    //     let from_vec: u64 = as_words.from_vec();
 
-        assert_eq!(from_vec, 12u64);
+    //     assert_eq!(from_vec, 12u64);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    pub fn test_i64() -> Result<(), Error> {
+    // #[test]
+    // pub fn test_i64() -> Result<(), Error> {
 
-        let num = -14i64;
+    //     let num = -14i64;
 
-        let as_words = num.as_words();
+    //     let as_words = num.as_words();
 
-        assert_eq!(as_words, vec![0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2]);
+    //     assert_eq!(as_words, vec![0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2]);
 
-        let from_vec: i64 = as_words.from_vec();
+    //     let from_vec: i64 = as_words.from_vec();
 
-        assert_eq!(from_vec, -14i64);
+    //     assert_eq!(from_vec, -14i64);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }

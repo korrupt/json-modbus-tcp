@@ -9,7 +9,7 @@ use std::{
 
 #[derive(Debug)]
 pub enum JsonError {
-    Incomplete(String),
+    // Incomplete(String),
     Invalid(String),
     NoFile,
     Io(std::io::Error),
@@ -20,7 +20,7 @@ impl std::fmt::Display for JsonError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             JsonError::Invalid(msg) => f.write_str(msg),
-            JsonError::Incomplete(msg) => f.write_str(msg),
+            // JsonError::Incomplete(msg) => f.write_str(msg),
             JsonError::Other(msg) => f.write_str(msg),
             JsonError::Io(err) => f.write_str(format!("{}", err.to_string()).as_str()),
             JsonError::NoFile => f.write_str("No file"),
@@ -199,8 +199,6 @@ pub fn registers_to_object(
                 | ((*bytes[2] as u64) << 16)
                 | (*bytes[3] as u64)) as i64)
                 .to_string(),
-
-            _ => return Err(JsonError::Other(format!("Error converting to type"))),
         };
 
         let value = serde_json::Number::from_str(number_str.as_str())
@@ -243,8 +241,9 @@ mod tests {
             "40300/q": -1,
         });
 
-        let (registers, keys): (HashMap<u16, u16>, Vec<String>) =
+        let (registers, _): (HashMap<u16, u16>, Vec<String>) =
             parse(data).map_err(|e| e.to_string())?;
+
         assert!(registers.get(&40003).unwrap() == &(124i16 as u16));
         assert!(registers.get(&40004).unwrap() == &(124i16 as u16));
         assert!(registers.get(&40100).unwrap() == &(-1i16 as u16));

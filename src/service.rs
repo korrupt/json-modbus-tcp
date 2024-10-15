@@ -137,14 +137,6 @@ impl tokio_modbus::server::Service for ModbusService {
     }
 }
 
-fn pad_holding_register(addr: u16) -> u16 {
-    if addr < 10000 {
-        addr + 40000
-    } else {
-        addr
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
