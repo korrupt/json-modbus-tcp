@@ -33,7 +33,7 @@ struct Args {
     #[clap(long)]
     debug: bool,
 
-    /// Whitelist
+    /// Whitelist (comma separated)
     #[clap(short = 'W', use_value_delimiter = true )]
     whitelist: Vec<String>,
 }
