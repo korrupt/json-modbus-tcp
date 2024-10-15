@@ -78,7 +78,7 @@ pub enum PackError {
 
 #[cfg(test)]
 pub mod test {
-    use crate::python_struct::*;
+    use crate::pack::*;
 
     #[test]
     pub fn test_packformat_parse() -> Result<(), anyhow::Error> {

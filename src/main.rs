@@ -9,7 +9,7 @@ use ipnetwork::IpNetwork;
 use server::ServerConfig;
 
 mod json;
-mod python_struct;
+mod pack;
 mod register_manager;
 mod server;
 mod service;

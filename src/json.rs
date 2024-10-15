@@ -1,4 +1,4 @@
-use crate::python_struct::{PackFormat, PackType};
+use crate::pack::{PackFormat, PackType};
 use serde_json::{Map, Value};
 use std::{
     collections::HashMap,
