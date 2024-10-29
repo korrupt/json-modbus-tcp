@@ -156,7 +156,7 @@ mod tests {
             "40007/Q": 42,
         });
 
-        let register_manager = Arc::new(RegisterManager::from_json(json, false).unwrap());
+        let register_manager = Arc::new(RegisterManager::from_json(json).unwrap());
         let service = ModbusService::new(
             register_manager.clone(),
             "0.0.0.0".parse().unwrap(),

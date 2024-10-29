@@ -22,7 +22,6 @@ impl Default for RegisterManager {
             coils: Arc::new(RwLock::new(HashMap::new())),
             holding_registers: Arc::new(RwLock::new(HashMap::new())),
             input_registers: Arc::new(RwLock::new(HashMap::new())),
-            debug: false,
             keys: vec![],
         }
     }
@@ -33,7 +32,6 @@ pub struct RegisterManager {
     coils: Arc<RwLock<Register>>,
     holding_registers: Arc<RwLock<Register>>,
     input_registers: Arc<RwLock<Register>>,
-    debug: bool,
     keys: Vec<String>,
 }
 
@@ -57,14 +55,14 @@ impl std::fmt::Display for RegisterType {
 }
 
 impl RegisterManager {
-    pub fn new(debug: bool) -> Self {
+    pub fn new() -> Self {
         RegisterManager {
-            debug,
+            // debug,
             ..Default::default()
         }
     }
 
-    pub fn from_json(json: Value, debug: bool) -> Result<Self, JsonError> {
+    pub fn from_json(json: Value) -> Result<Self, JsonError> {
         // let JsonResult { coils, holding_registers, .. } = json::parse(json)?;
         let (registers, keys) = json::parse(json)?;
 
@@ -105,15 +103,15 @@ impl RegisterManager {
             inputs: Arc::new(RwLock::new(inputs)),
             input_registers: Arc::new(RwLock::new(input_registers)),
             holding_registers: Arc::new(RwLock::new(holding_registers)),
-            debug,
+            // debug,
             keys,
         })
     }
 
     pub fn update_persistence(&self) -> Result<(), RegisterError> {
-        if self.debug {
-            println!("Updating persistence");
-        }
+        // if self.debug {
+        //     println!("Updating persistence");
+        // }
 
         let coils = self.coils.read().unwrap().clone();
         let inputs = self.inputs.read().unwrap().clone();
@@ -161,9 +159,9 @@ impl RegisterManager {
         
         let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
-        if self.debug {
-            println!("Read {} addr: {} Cnt: {:?}", registers_type, addr, cnt);
-        }
+        // if self.debug {
+        //     println!("Read {} addr: {} Cnt: {:?}", registers_type, addr, cnt);
+        // }
 
         {
             let registers = self.register_select(registers_type).read().unwrap();
@@ -187,9 +185,9 @@ impl RegisterManager {
         values: &[u16],
     ) -> Result<(), RegisterError> {
         {
-            if self.debug {
-                println!("Write {} addr: {} Data: {:?}", registers_type, addr, values);
-            }
+            // if self.debug {
+            //     println!("Write {} addr: {} Data: {:?}", registers_type, addr, values);
+            // }
 
             let mut registers = self.register_select(registers_type).write().unwrap();
 
@@ -231,7 +229,7 @@ mod register_tests {
             "40200": 10,
         });
 
-        let _ = RegisterManager::from_json(data, false).unwrap();
+        let _ = RegisterManager::from_json(data).unwrap();
         assert!(true);
 
         Ok(())

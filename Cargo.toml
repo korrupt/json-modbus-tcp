@@ -8,8 +8,11 @@ description = "A Modbus TCP server written in async rust for use as a proxy betw
 
 [dependencies]
 anyhow = "1.0.81"
+chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive", "env"] }
+fern = "0.7.0"
 ipnetwork = "0.20.0"
+log = "0.4.22"
 serde = "1.0.204"
 serde_json = { version = "1.0.120", features = ["preserve_order"] }
 tokio = { version = "1.37.0", features = ["time"] }

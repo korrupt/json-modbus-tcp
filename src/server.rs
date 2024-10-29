@@ -2,6 +2,7 @@ use std::thread;
 use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc};
 use ipnetwork::IpNetwork;
+use log::info;
 use tokio::net::TcpListener;
 
 use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
@@ -13,23 +14,22 @@ use crate::service::ModbusService;
 pub struct ServerConfig {
     pub socket_addr: SocketAddr,
     pub update_frequency: Duration,
-    pub debug: bool,
     pub read_whitelist: Option<Vec<IpNetwork>>,
     pub write_whitelist: Option<Vec<IpNetwork>>,
 }
 
 pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
-    println!("Starting up server on {}", config.socket_addr.to_string());
+    info!("Server listening on {}", config.socket_addr);
 
     let listener = TcpListener::bind(config.socket_addr).await?;
 
     let manager = Arc::new(
         match json::load("data.json")
-            .and_then(|v| RegisterManager::from_json(v, config.debug)) {
+            .and_then(|v| RegisterManager::from_json(v)) {
                 Ok(v) => v,
                 Err(e) => {
                     println!("Failed to loading json. Using empty registers. Error: {e}");
-                    RegisterManager::new(config.debug)
+                    RegisterManager::new()
                 }
             }
     );
@@ -41,9 +41,9 @@ pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
     };
 
     let on_connected = |stream, socket_addr: SocketAddr| async move {
-        if config.debug {
-            println!("New connection: {}", socket_addr.ip());
-        }
+        // if config.debug {
+        //     println!("New connection: {}", socket_addr.ip());
+        // }
         
         accept_tcp_connection(stream, socket_addr, &new_service)
     };
