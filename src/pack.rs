@@ -81,7 +81,7 @@ pub mod test {
     use crate::pack::*;
 
     #[test]
-    pub fn test_packformat_parse() -> Result<(), anyhow::Error> {
+    pub fn test_packformat_parse() -> Result<(), Box<dyn std::error::Error>> {
 
         assert_eq!(PackFormat::parse("40001/h").unwrap(), PackFormat { address: 40001, pack_type: PackType::I16 });
         assert_eq!(PackFormat::parse("40311/H").unwrap(), PackFormat { address: 40311, pack_type: PackType::U16 });

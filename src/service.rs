@@ -152,9 +152,10 @@ mod tests {
     use std::sync::Arc;
     use tokio::test;
     use tokio_modbus::{server::Service, Request};
+    type Error = Box<dyn std::error::Error>;
 
     #[test]
-    pub async fn read_register_test() -> Result<(), anyhow::Error> {
+    pub async fn read_register_test() -> Result<(), Error> {
         let json = json!({
             "40007/Q": 42,
         });
@@ -185,11 +186,6 @@ mod tests {
 
         assert_eq!(value_arr, received);
 
-        Ok(())
-    }
-
-    #[test]
-    pub async fn pad_address_test() -> Result<(), anyhow::Error> {
         Ok(())
     }
 }

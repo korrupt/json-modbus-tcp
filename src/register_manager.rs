@@ -201,9 +201,10 @@ mod register_tests {
     use serde_json::json;
 
     use crate::register_manager::RegisterManager;
+    type Error = Box<dyn std::error::Error>;
 
     #[test]
-    pub fn test_from_json() -> anyhow::Result<()> {
+    pub fn test_from_json() -> Result<(), Error> {
         let data = json!({
             "1": 1,
             "100": 1,

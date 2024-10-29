@@ -18,7 +18,7 @@ pub struct ServerConfig {
     pub write_whitelist: Option<Vec<IpNetwork>>,
 }
 
-pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
+pub async fn server_context(config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     info!("Server listening on {}", config.socket_addr);
 
     let listener = TcpListener::bind(config.socket_addr).await?;
