@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use log::{error, warn};
 use serde_json::Value;
 
 use crate::json::{self, JsonError};
@@ -103,16 +104,11 @@ impl RegisterManager {
             inputs: Arc::new(RwLock::new(inputs)),
             input_registers: Arc::new(RwLock::new(input_registers)),
             holding_registers: Arc::new(RwLock::new(holding_registers)),
-            // debug,
             keys,
         })
     }
 
     pub fn update_persistence(&self) -> Result<(), RegisterError> {
-        // if self.debug {
-        //     println!("Updating persistence");
-        // }
-
         let coils = self.coils.read().unwrap().clone();
         let inputs = self.inputs.read().unwrap().clone();
         let input_registers = self.input_registers.read().unwrap().clone();
@@ -128,7 +124,7 @@ impl RegisterManager {
         let value = json::registers_to_object(&registers, self.keys.clone()).unwrap();
 
         if let Err(e) = json::write(value, "data.json") {
-            eprintln!("Error updating persistence: {:?}", e);
+            error!("Error updating persistence: {:?}", e);
         }
 
         Ok(())
@@ -159,10 +155,6 @@ impl RegisterManager {
         
         let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
-        // if self.debug {
-        //     println!("Read {} addr: {} Cnt: {:?}", registers_type, addr, cnt);
-        // }
-
         {
             let registers = self.register_select(registers_type).read().unwrap();
 
@@ -170,6 +162,7 @@ impl RegisterManager {
                 if let Some(value) = registers.get(&(addr + i)) {
                     response.push(*value);
                 } else {
+                    warn!("Got register out of bounds at {}", &(addr + cnt));
                     return Err(RegisterError::OutOfBounds);
                 }
             }
@@ -185,10 +178,6 @@ impl RegisterManager {
         values: &[u16],
     ) -> Result<(), RegisterError> {
         {
-            // if self.debug {
-            //     println!("Write {} addr: {} Data: {:?}", registers_type, addr, values);
-            // }
-
             let mut registers = self.register_select(registers_type).write().unwrap();
 
             for (i, value) in values.iter().enumerate() {
@@ -197,6 +186,7 @@ impl RegisterManager {
                 if let Some(val) = registers.get_mut(&reg_addr) {
                     *val = *value;
                 } else {
+                    warn!("Got register out of bounds at {}", &reg_addr);
                     return Err(RegisterError::OutOfBounds);
                 }
             }

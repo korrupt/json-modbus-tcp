@@ -5,6 +5,7 @@ use std::{
 
 use clap::Parser;
 use fern::Dispatch;
+use log::LevelFilter;
 use server::ServerConfig;
 use validation::{validate_time, parse_whitelist};
 
@@ -53,9 +54,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 record.level(),
                 record.target(),
                 message
-            ));
+            ))
         })
         .level(args.loglevel)
+        .level_for("tokio_modbus", LevelFilter::Off)
         .chain(std::io::stdout())
         .apply().unwrap();
 

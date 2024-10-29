@@ -10,6 +10,7 @@ description = "A Modbus TCP server written in async rust for use as a proxy betw
 anyhow = "1.0.81"
 chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive", "env"] }
+colored = "2.1.0"
 fern = "0.7.0"
 ipnetwork = "0.20.0"
 log = "0.4.22"

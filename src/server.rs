@@ -2,7 +2,7 @@ use std::thread;
 use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc};
 use ipnetwork::IpNetwork;
-use log::info;
+use log::{error, info};
 use tokio::net::TcpListener;
 
 use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
@@ -28,7 +28,7 @@ pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
             .and_then(|v| RegisterManager::from_json(v)) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("Failed to loading json. Using empty registers. Error: {e}");
+                    error!("Failed to loading json. Using empty registers. Error: {e}");
                     RegisterManager::new()
                 }
             }
@@ -37,19 +37,15 @@ pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
     let server = Server::new(listener);
 
     let new_service = |addr: SocketAddr| {
-        Ok(Some(ModbusService::new(manager.clone(), addr.ip(), config.read_whitelist.clone(), config.write_whitelist.clone())))
+        Ok(Some(ModbusService::new(manager.clone(), addr, config.read_whitelist.clone(), config.write_whitelist.clone())))
     };
 
     let on_connected = |stream, socket_addr: SocketAddr| async move {
-        // if config.debug {
-        //     println!("New connection: {}", socket_addr.ip());
-        // }
-        
         accept_tcp_connection(stream, socket_addr, &new_service)
     };
 
     let on_process_error = |err| {
-        eprintln!("{err}");
+        error!("{err}");
     };    
 
     new_service(config.socket_addr)?;
@@ -65,7 +61,7 @@ pub async fn server_context(config: ServerConfig) -> anyhow::Result<()> {
 
             thread::sleep(config.update_frequency);
             if let Err(e) = persistence_clone.update_persistence() {
-                eprint!("Error updating persistence: {:?}", e);
+                error!("Error updating persistence: {:?}", e);
             }
         }
     });

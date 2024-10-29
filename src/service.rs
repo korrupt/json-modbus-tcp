@@ -1,19 +1,20 @@
 use crate::register_manager::{RegisterError, RegisterManager, RegisterType};
 use ipnetwork::IpNetwork;
-use std::{future, net::IpAddr, sync::Arc};
+use log::{debug, error, warn};
+use std::{future, net::SocketAddr, sync::Arc};
 use tokio_modbus::{Exception, Request, Response};
 
 pub struct ModbusService {
     manager: Arc<RegisterManager>,
     read_whitelist: Option<Vec<IpNetwork>>,
     write_whitelist: Option<Vec<IpNetwork>>,
-    ip_addr: IpAddr,
+    ip: SocketAddr,
 }
 
 impl ModbusService {
     pub fn new(
         manager: Arc<RegisterManager>,
-        ip_addr: IpAddr,
+        ip: SocketAddr,
         read_whitelist: Option<Vec<IpNetwork>>,
         write_whitelist: Option<Vec<IpNetwork>>,
     ) -> Self {
@@ -21,7 +22,7 @@ impl ModbusService {
             manager,
             read_whitelist,
             write_whitelist,
-            ip_addr,
+            ip,
         }
     }
 }
@@ -43,7 +44,7 @@ impl tokio_modbus::server::Service for ModbusService {
         if self
             .read_whitelist
             .as_ref()
-            .is_some_and(|w| !w.iter().any(|ip| ip.contains(self.ip_addr)))
+            .is_some_and(|w| !w.iter().any(|ip| ip.contains(self.ip.ip())))
             && matches!(
                 req,
                 Request::WriteMultipleCoils(_, _)
@@ -52,10 +53,10 @@ impl tokio_modbus::server::Service for ModbusService {
                     | Request::WriteSingleRegister(_, _)
             )
         {
-            println!(
+            warn!(
                 "Blocked request {:?} from {}",
                 req,
-                self.ip_addr.to_canonical().to_string()
+                self.ip.to_string()
             );
             return future::ready(Err(Exception::IllegalDataValue));
         }
@@ -63,7 +64,7 @@ impl tokio_modbus::server::Service for ModbusService {
         if self
             .write_whitelist
             .as_ref()
-            .is_some_and(|w| !w.iter().any(|ip| ip.contains(self.ip_addr)))
+            .is_some_and(|w| !w.iter().any(|ip| ip.contains(self.ip.ip())))
             && matches!(
                 req,
                 Request::ReadCoils(_, _)
@@ -72,13 +73,15 @@ impl tokio_modbus::server::Service for ModbusService {
                     | Request::ReadInputRegisters(_, _)
             )
         {
-            println!(
+            warn!(
                 "Blocked request {:?} from {}",
                 req,
-                self.ip_addr.to_canonical().to_string()
+                self.ip.to_string()
             );
             return future::ready(Err(Exception::IllegalDataValue));
         }
+
+        debug!("{}: {:?}", self.ip, req);
 
         match req {
             Request::ReadCoils(addr, cnt) => future::ready(
@@ -130,7 +133,7 @@ impl tokio_modbus::server::Service for ModbusService {
                     .map_err(|e| e.into()),
             ),
             _ => {
-                println!("SERVER: Exception::IllegalFunction - Unimplemented function code in request: {req:?}");
+                error!("SERVER: Exception::IllegalFunction - Unimplemented function code in request: {req:?}");
                 future::ready(Err(Exception::IllegalFunction))
             }
         }
@@ -159,7 +162,7 @@ mod tests {
         let register_manager = Arc::new(RegisterManager::from_json(json).unwrap());
         let service = ModbusService::new(
             register_manager.clone(),
-            "0.0.0.0".parse().unwrap(),
+            "0.0.0.0:503".parse().unwrap(),
             None,
             None,
         );
