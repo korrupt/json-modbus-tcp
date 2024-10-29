@@ -1,6 +1,5 @@
 use std::{
-    net::{Ipv4Addr, SocketAddr},
-    str::FromStr,
+    net::SocketAddr,
     time::Duration,
 };
 
@@ -20,12 +19,9 @@ mod validation;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// target IP address
-    target: String,
-
-    /// Which port to run on
-    #[clap(short, default_value = "503")]
-    port: u16,
+    /// target IP address and port
+    #[arg(default_value = "0.0.0.0:502")]
+    target: SocketAddr,
 
     /// How often to update persistence
     #[clap(short('f'), default_value = "1s", value_parser = validate_time)]
@@ -35,7 +31,7 @@ struct Args {
     #[clap(short, default_value = "info", value_enum)]
     loglevel: log::LevelFilter,
 
-    /// Whitelist (comma separated)
+    /// CIDR Whitelist (r/w/rw) (comma separated)
     #[clap(short = 'W', use_value_delimiter = true )]
     whitelist: Vec<String>,
 }
@@ -45,8 +41,8 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let ip_address = Ipv4Addr::from_str(&args.target).expect("Invalid IP address:");
-    let socket_addr: SocketAddr = (ip_address, args.port).into();
+    // let ip_address = Ipv4Addr::from_str(&args.target).expect("Invalid IP address:");
+    // let socket_addr: SocketAddr = (ip_address, args.port).into();
     let (read_whitelist, write_whitelist) = parse_whitelist(args.whitelist)?;
     
     Dispatch::new()
@@ -66,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting with logging set to {}", args.loglevel);
 
     server::server_context(ServerConfig {
-        socket_addr,
+        socket_addr: args.target,
         update_frequency: args.update_frequency,
         read_whitelist,
         write_whitelist
