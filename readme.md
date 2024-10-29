@@ -1,5 +1,5 @@
-# Json Modbus
-A fully customisable Modbus TCP server using only a JSON file and command line arguments, written in Rust for speed.
+# Json Modbus Tcp
+A fully customisable Modbus TCP server using only a JSON file and commandline arguments, written in Rust for speed and security. Also includes a whitelist option if you want to control read/write-access.
 
 ## Supported data types
 The program supports several different data types, all of which can be defined using the <ins>[Python Format Characters](https://docs.python.org/3/library/struct.html#format-characters)</ins>. The following types are supported
@@ -50,6 +50,12 @@ A optional whitelist system has been implemented, and uses CIDR notation in addi
 : *allows read for 10.0.0.1 to 10.0.0.15*
 : *allows write for 0.0.0.0*
 
+## Building
+Building the project is done through Cargo with `cargo build --release`.
+Alternatively, look at the releases page.
+
+## Running
+The project can either be run directly through cargo with `cargo run` or by running the binary. Use the `-h` for more info on arguments
 
 ## Credit
 This software was made possible because of the efforts made in the [serde_json](https://github.com/serde-rs/json) and [tokio-modbus](https://github.com/slowtec/tokio-modbus) open source projects.

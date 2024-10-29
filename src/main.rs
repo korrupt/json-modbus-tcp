@@ -42,8 +42,6 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    // let ip_address = Ipv4Addr::from_str(&args.target).expect("Invalid IP address:");
-    // let socket_addr: SocketAddr = (ip_address, args.port).into();
     let (read_whitelist, write_whitelist) = parse_whitelist(args.whitelist)?;
     
     Dispatch::new()
