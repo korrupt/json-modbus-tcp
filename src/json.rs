@@ -7,6 +7,7 @@ use std::{
     str::FromStr,
 };
 
+
 #[derive(Debug)]
 pub enum JsonError {
     // Incomplete(String),
@@ -20,7 +21,6 @@ impl std::fmt::Display for JsonError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             JsonError::Invalid(msg) => f.write_str(msg),
-            // JsonError::Incomplete(msg) => f.write_str(msg),
             JsonError::Other(msg) => f.write_str(msg),
             JsonError::Io(err) => f.write_str(format!("{}", err.to_string()).as_str()),
             JsonError::NoFile => f.write_str("No file"),
@@ -99,35 +99,30 @@ pub fn parse(data: Value) -> Result<(HashMap<u16, u16>, Vec<String>), JsonError>
                     registers.insert(address, bit);
                 }
                 30001..=39999 | 40001..=49999 => {
-                    let transformed = number.as_i64().ok_or(JsonError::Invalid(format!(
-                        "Error parsing number at key '{}'",
+
+                    // need i128 as an intermediate representation to support both i64 and u64
+                    let transformed = number.as_i128().ok_or(JsonError::Invalid(format!(
+                        "Error parsing number at key.  '{}'",
                         address
                     )))?;
-
-                    if let PackType::U64 | PackType::U32 | PackType::U16 = pack_type {
-                        if transformed < 0 {
-                            return Err(JsonError::Invalid(format!(
-                                "Value at key '{}' should be positive",
-                                address
-                            )));
-                        }
-                    }
-
-                    let bytes: Vec<u16> = Some(transformed)
-                        .and_then(|n| match pack_type.len() {
-                            1 => i16::try_from(n).map(|v| v.to_be_bytes().to_vec()).ok(),
-                            2 => i32::try_from(n).map(|v| v.to_be_bytes().to_vec()).ok(),
-                            4 => Some(n.to_be_bytes().to_vec()),
-                            _ => unreachable!(),
+                    
+                    let bytes: Vec<u16> = Ok(transformed)
+                        .and_then(|n| match pack_type {
+                            PackType::I16 => i16::try_from(n).map(|v| v.to_be_bytes().to_vec()),
+                            PackType::U16 => u16::try_from(n).map(|v| v.to_be_bytes().to_vec()),
+                            PackType::I32 => i32::try_from(n).map(|v| v.to_be_bytes().to_vec()),
+                            PackType::U32 => u32::try_from(n).map(|v| v.to_be_bytes().to_vec()),
+                            PackType::I64 => i64::try_from(n).map(|v| v.to_be_bytes().to_vec()),
+                            PackType::U64 => u64::try_from(n).map(|v| v.to_be_bytes().to_vec()),
                         })
                         .map(|vec| {
                             vec.chunks(2)
                                 .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
                                 .collect()
                         })
-                        .ok_or(JsonError::Invalid(format!(
-                            "Error converting key {} to type {:?}",
-                            address, pack_type
+                        .map_err(|e| JsonError::Invalid(format!(
+                            "Error converting key {} to type {:?}: {}",
+                            address, pack_type, e
                         )))?;
 
                     for (idx, byte) in bytes.iter().enumerate() {
