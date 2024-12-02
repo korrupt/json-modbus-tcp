@@ -2,7 +2,7 @@ use crate::register_manager::{RegisterError, RegisterManager, RegisterType};
 use ipnetwork::IpNetwork;
 use log::{debug, error, warn};
 use std::{future, net::SocketAddr, sync::Arc};
-use tokio_modbus::{Exception, Request, Response};
+use tokio_modbus::{ExceptionCode, Request, Response};
 
 pub struct ModbusService {
     manager: Arc<RegisterManager>,
@@ -27,18 +27,20 @@ impl ModbusService {
     }
 }
 
-impl From<RegisterError> for Exception {
+impl From<RegisterError> for ExceptionCode {
     fn from(value: RegisterError) -> Self {
         match value {
-            RegisterError::OutOfBounds => Exception::IllegalDataAddress,
-            RegisterError::FileWriteError => Exception::ServerDeviceFailure,
+            RegisterError::OutOfBounds => ExceptionCode::IllegalDataAddress,
+            RegisterError::FileWriteError => ExceptionCode::ServerDeviceFailure,
         }
     }
 }
 
 impl tokio_modbus::server::Service for ModbusService {
+    type Exception = tokio_modbus::ExceptionCode;
+    type Response = tokio_modbus::Response;
     type Request = Request<'static>;
-    type Future = future::Ready<Result<Response, Exception>>;
+    type Future = future::Ready<Result<Response, ExceptionCode>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
         if self
@@ -58,7 +60,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 req,
                 self.ip.to_string()
             );
-            return future::ready(Err(Exception::IllegalDataValue));
+            return future::ready(Err(ExceptionCode::IllegalDataValue));
         }
 
         if self
@@ -78,7 +80,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 req,
                 self.ip.to_string()
             );
-            return future::ready(Err(Exception::IllegalDataValue));
+            return future::ready(Err(ExceptionCode::IllegalDataValue));
         }
 
         debug!("{}: {:?}", self.ip, req);
@@ -134,7 +136,7 @@ impl tokio_modbus::server::Service for ModbusService {
             ),
             _ => {
                 error!("SERVER: Exception::IllegalFunction - Unimplemented function code in request: {req:?}");
-                future::ready(Err(Exception::IllegalFunction))
+                future::ready(Err(ExceptionCode::IllegalFunction))
             }
         }
     }
