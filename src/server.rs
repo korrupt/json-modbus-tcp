@@ -28,8 +28,8 @@ pub async fn server_context(config: ServerConfig) -> Result<(), Box<dyn std::err
             .and_then(|v| RegisterManager::from_json(v)) {
                 Ok(v) => v,
                 Err(e) => {
-                    error!("Failed to loading json. Using empty registers. Error: {e}");
-                    RegisterManager::new()
+                    error!("Failed to loading json: {e}");
+                    return Err("Failed to load json".into())
                 }
             }
     );

@@ -10,6 +10,7 @@ ExecStart=/usr/share/rust-modbus/rust-modbus
 Restart=on-failure
 StandardOutput=file:/var/log/rust-modbus.log
 StandardError=file:/var/log/rust-modbus.log
+LimitFSIZE=20M
 
 [Install]
 WantedBy=network.target
