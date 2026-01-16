@@ -1,0 +1,21 @@
+
+
+listen: 0.0.0.0:4000
+output:
+  path: output.yml
+  update_frequency: 2s
+  format: JSON
+  
+debug_level: info
+
+registers:
+  - "40001/h=1"
+  - "40021/q=-64"
+  - offset: 1
+    default_value: "1"
+  - offset: 40013
+    default_value: "1"
+    type: uint64
+  - offset: 40017
+    type: int64
+    default_value: "63"

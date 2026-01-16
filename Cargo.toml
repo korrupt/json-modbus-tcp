@@ -10,9 +10,13 @@ description = "A Modbus TCP server written in async rust for use as a proxy betw
 chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
 fern = "0.7.0"
+humantime-serde = "1.1.1"
 ipnetwork = "0.20.0"
 log = "0.4.22"
-serde = "1.0.204"
+serde = { version = "1.0.204", features = ["derive"] }
 serde_json = { version = "1.0.120", features = ["preserve_order"] }
+serde_with = { version = "3.16.1", features = ["macros"] }
+serde_yaml = "0.9.34"
+thiserror = "2.0.17"
 tokio = { version = "*", features = ["time"] }
 tokio-modbus = { version = "*", features = ["tcp-server"] }

@@ -1,4 +1,8 @@
-#[derive(PartialEq, Debug)]
+use std::{num::ParseIntError, str::FromStr};
+
+use serde_with::{DeserializeFromStr, SerializeDisplay};
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, DeserializeFromStr, SerializeDisplay)]
 pub enum PackType {
     U16,
     I16,
@@ -8,16 +12,39 @@ pub enum PackType {
     I64
 }
 
+
 impl PackType {
-    fn from_char(value: &u8) -> Option<Self> {
+    pub fn payload_str(&self, words: &[u16]) -> String {
+        match self {
+            PackType::U16 => u16::from_be_words(words).to_string(),
+            PackType::I16 => i16::from_be_words(words).to_string(),
+            PackType::U32 => u32::from_be_words(words).to_string(),
+            PackType::I32 => i32::from_be_words(words).to_string(),
+            PackType::U64 => u64::from_be_words(words).to_string(),
+            PackType::I64 => i64::from_be_words(words).to_string(),
+        }
+    }
+
+    pub fn from_char(value: char) -> Option<Self> {
         match value {
-            b'h' => Some(PackType::I16),
-            b'H' => Some(PackType::U16),
-            b'i' => Some(PackType::I32),
-            b'I' => Some(PackType::U32),
-            b'q' => Some(PackType::I64),
-            b'Q' => Some(PackType::U64),
+            'h' => Some(PackType::I16),
+            'H' => Some(PackType::U16),
+            'i' => Some(PackType::I32),
+            'I' => Some(PackType::U32),
+            'q' => Some(PackType::I64),
+            'Q' => Some(PackType::U64),
             _ => None
+        }
+    }
+
+    pub fn to_char(&self) -> char {
+        match &self {
+            PackType::I16 => 'h',
+            PackType::U16 => 'H',
+            PackType::I32 => 'i',
+            PackType::U32 => 'I',
+            PackType::I64 => 'q',
+            PackType::U64 => 'Q',
         }
     }
 
@@ -31,66 +58,102 @@ impl PackType {
             PackType::I64 => 4,
         }
     }
+
+    pub fn try_make_payload(&self, value: &str) -> Result<Vec<u16>, ParseIntError>{ 
+        let bytes = match &self {
+            PackType::U16 => {
+                let val = value
+                    .parse::<u16>()?;
+                val.to_be_bytes().to_vec()
+            }
+
+            PackType::I16 => {
+                let val = value
+                    .parse::<i16>()?;
+                val.to_be_bytes().to_vec()
+            }
+
+            PackType::U32 => {
+                let val = value
+                    .parse::<u32>()?;
+                val.to_be_bytes().to_vec()
+            }
+
+            PackType::I32 => {
+                let val = value
+                    .parse::<i32>()?;
+                val.to_be_bytes().to_vec()
+            }
+
+            PackType::U64 => {
+                let val = value
+                    .parse::<u64>()?;
+                val.to_be_bytes().to_vec()
+            }
+
+            PackType::I64 => {
+                let val = value
+                    .parse::<i64>()?;
+                val.to_be_bytes().to_vec()
+            }
+        };
+
+        let mut words = Vec::with_capacity(self.len());
+        for (_, chunk) in bytes.chunks_exact(2).enumerate() {
+            let word = u16::from_be_bytes([chunk[0], chunk[1]]);
+            words.push(word);
+        }
+
+        Ok(words)
+    }
 }
 
-
-#[derive(PartialEq, Debug)]
-pub struct PackFormat {
-    pub address: u16,
-    pub pack_type: PackType,
-}
-
-
-impl PackFormat {
-    pub fn parse(addr: &str) -> Result<Self, PackError> {
-        // Check if there's a '/' in the string
-        if let Some(idx) = addr.find('/') {
-            // Parse the address (before the '/')
-            let address = addr[..idx].parse::<u16>().map_err(|_| PackError::Unsupported)?;
-
-            // Get the part after the '/'
-            addr.get(idx + 1..)
-                .ok_or(PackError::Unsupported)  // Error if nothing after the '/'
-                .and_then(|type_slice| match type_slice.as_bytes() {
-                    // Check if it's a valid single character format
-                    [format] => {
-                        PackType::from_char(format)
-                            .ok_or(PackError::Unsupported)  // Handle unsupported pack type
-                    },
-                    _ => Err(PackError::Unsupported),  // Error if invalid format
-                })
-                .map(|pack_type| PackFormat { address, pack_type })
-        } else {
-            // No '/', default to U16 and parse the address
-            let address = addr.parse::<u16>().map_err(|_| PackError::Unsupported)?;
-            Ok(PackFormat { address, pack_type: PackType::U16 })
+impl FromStr for PackType {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "uint16" | "h" => Ok(PackType::U16),
+            "int16" | "H" => Ok(PackType::I16),
+            "uint32" | "i" => Ok(PackType::U32),
+            "int32" | "I" => Ok(PackType::I32),
+            "uint64" | "q" => Ok(PackType::U64),
+            "int64" | "Q" => Ok(PackType::I64),
+            _ => Err("Invalid format".into())
         }
     }
 }
 
-
-#[derive(Debug, PartialEq)]
-pub enum PackError {
-    Unsupported
-}
-
-
-
-#[cfg(test)]
-pub mod test {
-    use crate::pack::*;
-
-    #[test]
-    pub fn test_packformat_parse() -> Result<(), Box<dyn std::error::Error>> {
-
-        assert_eq!(PackFormat::parse("40001/h").unwrap(), PackFormat { address: 40001, pack_type: PackType::I16 });
-        assert_eq!(PackFormat::parse("40311/H").unwrap(), PackFormat { address: 40311, pack_type: PackType::U16 });
-        assert_eq!(PackFormat::parse("40311/i").unwrap(), PackFormat { address: 40311, pack_type: PackType::I32 });
-        assert_eq!(PackFormat::parse("40311/I").unwrap(), PackFormat { address: 40311, pack_type: PackType::U32 });
-        assert_eq!(PackFormat::parse("40311/<"), Err(PackError::Unsupported));
-        assert_eq!(PackFormat::parse("40311").unwrap(), PackFormat { address: 40311, pack_type: PackType::U16});
-
-        Ok(())
+impl std::fmt::Display for PackType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.to_char()))
     }
-
 }
+
+// Helper trait (you can reuse your previous one)
+trait FromBeWords {
+    fn from_be_words(words: &[u16]) -> Self;
+}
+
+macro_rules! impl_from_be_words {
+    ($ty:ty, $words:literal) => {
+        impl FromBeWords for $ty {
+            fn from_be_words(words: &[u16]) -> Self {
+                if words.len() != $words {
+                    panic!("Expected {} words for {}, got {}", $words, stringify!($ty), words.len());
+                }
+                let mut val: Self = 0;
+                for (i, &w) in words.iter().enumerate() {
+                    val |= (w as Self) << (16 * ($words - 1 - i) as u32);
+                }
+                val
+            }
+        }
+    };
+}
+
+impl_from_be_words!(u16, 1);
+impl_from_be_words!(i16, 1);
+impl_from_be_words!(u32, 2);
+impl_from_be_words!(i32, 2);
+impl_from_be_words!(u64, 4);
+impl_from_be_words!(i64, 4);

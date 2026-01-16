@@ -1,31 +1,18 @@
 use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
+    collections::HashMap, sync::{Arc, RwLock}
 };
 
-use log::{error, warn};
-use serde_json::Value;
+use log::warn;
+use serde::{Serialize};
+use thiserror::Error;
+use crate::{register::{Canonical, Register, RegisterDefinition, RegisterError, RegisterType}};
 
-use crate::json::{self, JsonError};
-
-pub type Register = HashMap<u16, u16>;
-
-#[derive(Debug)]
-pub enum RegisterError {
+#[derive(Error, Debug)]
+pub enum ManagerError {
+    #[error("{0}")]
+    Register(#[from] RegisterError),
+    #[error("Out of bounds")]
     OutOfBounds,
-    FileWriteError,
-}
-
-impl Default for RegisterManager {
-    fn default() -> Self {
-        RegisterManager {
-            inputs: Arc::new(RwLock::new(HashMap::new())),
-            coils: Arc::new(RwLock::new(HashMap::new())),
-            holding_registers: Arc::new(RwLock::new(HashMap::new())),
-            input_registers: Arc::new(RwLock::new(HashMap::new())),
-            keys: vec![],
-        }
-    }
 }
 
 pub struct RegisterManager {
@@ -33,101 +20,55 @@ pub struct RegisterManager {
     coils: Arc<RwLock<Register>>,
     holding_registers: Arc<RwLock<Register>>,
     input_registers: Arc<RwLock<Register>>,
-    keys: Vec<String>,
 }
 
-#[allow(dead_code)]
-pub enum RegisterType {
-    Inputs,
-    Coils,
-    HoldingRegisters,
-    InputRegisters,
-}
-
-impl std::fmt::Display for RegisterType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RegisterType::Coils => f.write_str("Coils"),
-            RegisterType::HoldingRegisters => f.write_str("Holding Registers"),
-            RegisterType::InputRegisters => f.write_str("Input Registers"),
-            RegisterType::Inputs => f.write_str("Inputs"),
-        }
-    }
-}
 
 impl RegisterManager {
-    pub fn new() -> Self {
-        RegisterManager {
-            // debug,
-            ..Default::default()
-        }
+
+    pub fn try_from_definitions(definitions: &[RegisterDefinition]) -> Result<Self, ManagerError> {
+        let canonical = Canonical::try_from_definition(definitions)?;
+        Ok(Self::from_canonical(canonical))
     }
 
-    pub fn from_json(json: Value) -> Result<Self, JsonError> {
-        // let JsonResult { coils, holding_registers, .. } = json::parse(json)?;
-        let (registers, keys) = json::parse(json)?;
+    pub fn from_canonical(canonical: Canonical) -> Self {
 
-        let coils = registers
-            .keys()
-            .into_iter()
-            .cloned()
-            .filter(|&key| key >= 1 && key <= 9999)
-            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone()))))
-            .collect();
+        let mut coils: Register = HashMap::new();
+        let mut inputs: Register = HashMap::new();
+        let mut input_registers: Register = HashMap::new();
+        let mut holding_registers: Register = HashMap::new();
 
-        let inputs = registers
-            .keys()
-            .into_iter()
-            .cloned()
-            .filter(|&key| key >= 10001 && key <= 19999)
-            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone()))))
-            .collect();
+        for (k, v) in canonical.to_register().into_iter() {
+            match RegisterType::from_key(&k).expect("This has already been validated") {
+                RegisterType::Coils => coils.insert(k, v),
+                RegisterType::Inputs => inputs.insert(k, v),
+                RegisterType::InputRegisters => input_registers.insert(k, v),
+                RegisterType::HoldingRegisters => holding_registers.insert(k, v)
+            };
+        }
 
-        let input_registers = registers
-            .keys()
-            .into_iter()
-            .cloned()
-            .filter(|&key| key >= 30001 && key <= 39999)
-            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone()))))
-            .collect();
-
-        let holding_registers = registers
-            .keys()
-            .into_iter()
-            .cloned()
-            .filter(|&key| key >= 40001 && key <= 49999)
-            .filter_map(|key| registers.get(&key).and_then(|val| Some((key, val.clone()))))
-            .collect();
-
-        Ok(RegisterManager {
+        
+        RegisterManager {
             coils: Arc::new(RwLock::new(coils)),
             inputs: Arc::new(RwLock::new(inputs)),
             input_registers: Arc::new(RwLock::new(input_registers)),
             holding_registers: Arc::new(RwLock::new(holding_registers)),
-            keys,
-        })
+        }
     }
 
-    pub fn update_persistence(&self) -> Result<(), RegisterError> {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        RegisterManager {
+            ..Default::default()
+        }
+    }
+
+    pub fn snapshot(&self) -> ManagerSnapshot {
         let coils = self.coils.read().unwrap().clone();
         let inputs = self.inputs.read().unwrap().clone();
         let input_registers = self.input_registers.read().unwrap().clone();
         let holding_registers = self.holding_registers.read().unwrap().clone();
 
-        let registers: HashMap<u16, u16> = coils
-            .into_iter()
-            .chain(inputs.into_iter())
-            .chain(input_registers.into_iter())
-            .chain(holding_registers.into_iter())
-            .collect();
-
-        let value = json::registers_to_object(&registers, self.keys.clone()).unwrap();
-
-        if let Err(e) = json::write(value, "data.json") {
-            error!("Error updating persistence: {:?}", e);
-        }
-
-        Ok(())
+        ManagerSnapshot { inputs, coils, holding_registers, input_registers }
     }
 
     fn register_select(&self, registers_type: RegisterType) -> &Arc<RwLock<Register>> {
@@ -144,29 +85,9 @@ impl RegisterManager {
         registers_type: RegisterType,
         addr: u16,
         cnt: u16,
-    ) -> Result<Vec<u16>, RegisterError> {
-
-        let addr = match registers_type {
-            RegisterType::Coils => Some(addr).filter(|&a| a >= 1 && a <= 9999),
-            RegisterType::Inputs => Some(addr).filter(|&a| a >= 10001 && a <= 19999),
-            RegisterType::InputRegisters => Some(addr).filter(|&a| a >= 30001 && a <= 39999),
-            RegisterType::HoldingRegisters => Some(addr).filter(|&a| a >= 40001 && a <= 49999),
-        }.ok_or(RegisterError::OutOfBounds)?;
-        
-        let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
-
-        {
-            let registers = self.register_select(registers_type).read().unwrap();
-
-            for i in 0..cnt {
-                if let Some(value) = registers.get(&(addr + i)) {
-                    response.push(*value);
-                } else {
-                    warn!("Got register out of bounds at {}", &(addr + cnt));
-                    return Err(RegisterError::OutOfBounds);
-                }
-            }
-        }
+    ) -> Result<Vec<u16>, ManagerError> {
+        let registers = self.register_select(registers_type).read().unwrap();
+        let response = read_register(&registers, addr, cnt)?;
 
         Ok(response)
     }
@@ -176,53 +97,87 @@ impl RegisterManager {
         registers_type: RegisterType,
         addr: u16,
         values: &[u16],
-    ) -> Result<(), RegisterError> {
+    ) -> Result<(), ManagerError> {
         {
             let mut registers = self.register_select(registers_type).write().unwrap();
 
-            for (i, value) in values.iter().enumerate() {
-                let reg_addr = addr + i as u16;
-
-                if let Some(val) = registers.get_mut(&reg_addr) {
-                    *val = *value;
-                } else {
-                    warn!("Got register out of bounds at {}", &reg_addr);
-                    return Err(RegisterError::OutOfBounds);
-                }
-            }
+            write_register(&mut registers, addr, values)?;
         }
 
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod register_tests {
-    use serde_json::json;
 
-    use crate::register_manager::RegisterManager;
-    type Error = Box<dyn std::error::Error>;
+pub fn read_register(
+    registers: &Register,
+    addr: u16,
+    cnt: u16,
+) -> Result<Vec<u16>, ManagerError> {
+    let mut response: Vec<u16> = Vec::with_capacity(cnt.into());
 
-    #[test]
-    pub fn test_from_json() -> Result<(), Error> {
-        let data = json!({
-            "1": 1,
-            "100": 1,
-            "40001": 1,
-            "40002": 1,
-            "40003": 20000,
-            "40007": 10,
-            "40011": 10,
-            "40015": 10,
-            "40019": 10,
-            "40023": 10,
-            "40100": 10,
-            "40200": 10,
-        });
+    for i in 0..cnt as usize {
+        let reg_addr = addr + i as u16;
+        if let Some(val) = registers.get(&reg_addr) {
+            response.insert(i, *val);
+        } else {
+            warn!("Got register out of bounds at {}", &reg_addr);
+            return Err(ManagerError::OutOfBounds);
+        }
+    }
 
-        let _ = RegisterManager::from_json(data).unwrap();
-        assert!(true);
+    Ok(response)
+}
 
-        Ok(())
+pub fn write_register(
+    registers: &mut Register,
+    addr: u16,
+    values: &[u16],
+) -> Result<(), ManagerError> {
+    for (i, value) in values.iter().enumerate() {
+        let reg_addr = addr + i as u16;
+
+        if let Some(val) = registers.get_mut(&reg_addr) {
+            *val = *value;
+        } else {
+            warn!("Got register out of bounds at {}", &reg_addr);
+            return Err(ManagerError::OutOfBounds);
+        }
+    }
+
+    Ok(())
+}
+
+
+#[derive(Debug, Serialize)]
+pub struct ManagerSnapshot {
+    pub inputs: Register,
+    pub coils: Register,
+    pub holding_registers: Register,
+    pub input_registers: Register,
+}
+
+impl Into<Register> for ManagerSnapshot {
+    fn into(self) -> Register {
+        let mut reg: Register = Register::new();
+
+        for (k, v) in self.coils { reg.insert(k, v); };
+        for (k, v) in self.inputs { reg.insert(k, v); };
+        for (k, v) in self.input_registers { reg.insert(k, v); };
+        for (k, v) in self.holding_registers { reg.insert(k, v); };
+
+        reg
+    }
+}
+
+
+impl Default for RegisterManager {
+    fn default() -> Self {
+        RegisterManager {
+            inputs: Arc::new(RwLock::new(HashMap::new())),
+            coils: Arc::new(RwLock::new(HashMap::new())),
+            holding_registers: Arc::new(RwLock::new(HashMap::new())),
+            input_registers: Arc::new(RwLock::new(HashMap::new())),
+        }
     }
 }
