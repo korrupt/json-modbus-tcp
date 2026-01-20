@@ -33,8 +33,7 @@ fn parse_registers(s: &str) -> Result<RegisterDefinition, String> {
 
 fn default_whitelist() -> Vec<String> {
     vec![
-        "0.0.0.0:rw".into(),
-        "127.0.0.1:rw".into()
+        "0.0.0.0/0:rw".into(),
     ]
 }
 
@@ -65,7 +64,7 @@ pub struct Args {
     loglevel: log::LevelFilter,
 
     /// CIDR Whitelist (r/w/rw) (comma separated)
-    #[arg(short = 'W', default_value =  "0.0.0.0:rw,127.0.0.1:rw", use_value_delimiter = true)]
+    #[arg(short = 'W', default_value =  "0.0.0.0/0:rw", use_value_delimiter = true)]
     #[serde(default = "default_whitelist")]
     global_whitelist: Vec<String>,
 

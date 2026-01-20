@@ -30,6 +30,8 @@ pub fn parse_whitelist(
                 .map_err(|e| format!("Error parsing CIDR part of string: {}", e))
         })?;
 
+        dbg!(&net, &op);
+
         if matches!(op, Op::Read | Op::ReadWrite) {
             read.push(net);
         }
@@ -43,6 +45,7 @@ pub fn parse_whitelist(
 }
 
 
+#[derive(Debug)]
 pub enum Op {
     Read,
     Write,
@@ -58,4 +61,26 @@ impl Op {
             _ => Err("Error parsing operation".into()),
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use std::net::IpAddr;
+
+    use ipnetwork::IpNetwork;
+
+    type Error = Box<dyn std::error::Error>;
+    
+
+    #[test]
+    pub fn test_cidr() -> Result<(), Error> {
+
+        let net = IpNetwork::new([0,0,0,0].into(), 0)?;
+        let test_ip: IpAddr = IpAddr::V4([10, 10, 15, 11].into());
+
+        assert!(net.contains(test_ip));
+
+        Ok(())
+    }
+
 }
