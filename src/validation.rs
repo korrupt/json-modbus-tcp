@@ -30,8 +30,6 @@ pub fn parse_whitelist(
                 .map_err(|e| format!("Error parsing CIDR part of string: {}", e))
         })?;
 
-        dbg!(&net, &op);
-
         if matches!(op, Op::Read | Op::ReadWrite) {
             read.push(net);
         }
